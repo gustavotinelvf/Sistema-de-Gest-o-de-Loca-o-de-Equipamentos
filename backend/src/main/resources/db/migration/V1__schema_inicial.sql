@@ -125,8 +125,6 @@ CREATE INDEX ix_modelo_equipamento_categoria ON modelo_equipamento (categoria);
 -- ---------------------------------------------------------------------
 -- ESTOQUE: unidade_equipamento (maquina fisica)
 -- version = trava otimista (@Version no JPA).
--- Nota: RD013 do plano preve tambem o status EM_VISTORIA. Ele entra em
--- uma migration V2 quando o modulo de devolucao for criado.
 -- ---------------------------------------------------------------------
 CREATE TABLE unidade_equipamento (
     id           BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -140,7 +138,7 @@ CREATE TABLE unidade_equipamento (
     CONSTRAINT fk_unidade_equipamento_modelo FOREIGN KEY (modelo_id)
         REFERENCES modelo_equipamento (id) ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT ck_unidade_equipamento_status
-        CHECK (status IN ('DISPONIVEL', 'LOCADA', 'EM_MANUTENCAO'))
+        CHECK (status IN ('DISPONIVEL', 'LOCADA', 'EM_MANUTENCAO', 'EM_VISTORIA'))
 );
 
 CREATE INDEX ix_unidade_equipamento_modelo_status ON unidade_equipamento (modelo_id, status);
@@ -149,7 +147,6 @@ CREATE INDEX ix_unidade_equipamento_modelo_status ON unidade_equipamento (modelo
 -- CONTRATO
 -- percentual_multa e copiado da locadora na formalizacao (RD015).
 -- UNIQUE (id, inicio, fim) existe para a FK composta de item_contrato.
--- Nota: o dicionario preve tambem o status CANCELADO (D08); entra em V2.
 -- ---------------------------------------------------------------------
 CREATE TABLE contrato (
     id                   BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -165,7 +162,7 @@ CREATE TABLE contrato (
     CONSTRAINT uk_contrato_id_periodo UNIQUE (id, data_inicio_prevista, data_fim_prevista),
     CONSTRAINT fk_contrato_cliente FOREIGN KEY (cliente_id)
         REFERENCES cliente (id) ON UPDATE RESTRICT ON DELETE RESTRICT,
-    CONSTRAINT ck_contrato_status CHECK (status IN ('PLANEJADO', 'ATIVO', 'FINALIZADO')),
+    CONSTRAINT ck_contrato_status CHECK (status IN ('PLANEJADO', 'ATIVO', 'FINALIZADO', 'CANCELADO')),
     CONSTRAINT ck_contrato_periodo CHECK (data_fim_prevista > data_inicio_prevista),
     CONSTRAINT ck_contrato_valor_total CHECK (valor_total >= 0),
     CONSTRAINT ck_contrato_percentual_multa CHECK (percentual_multa >= 0)
@@ -175,35 +172,14 @@ CREATE INDEX ix_contrato_cliente ON contrato (cliente_id);
 CREATE INDEX ix_contrato_status ON contrato (status);
 
 -- Maquina de estados estrita: PLANEJADO -> ATIVO -> FINALIZADO.
-CREATE FUNCTION fn_contrato_valida_transicao() RETURNS trigger AS $$
-BEGIN
-    IF NEW.status = OLD.status THEN
-        RETURN NEW;
-    END IF;
-    IF (OLD.status = 'PLANEJADO' AND NEW.status = 'ATIVO')
-       OR (OLD.status = 'ATIVO' AND NEW.status = 'FINALIZADO') THEN
-        RETURN NEW;
-    END IF;
-    RAISE EXCEPTION 'Transicao de status invalida no contrato %: % -> %',
-        OLD.id, OLD.status, NEW.status
-        USING ERRCODE = 'check_violation';
-END;
-$$ LANGUAGE plpgsql;
+CREATE FUNCTION fn_contrato_valida_transicao() RETURNS trigger AS $$ BEGIN IF NEW.status = OLD.status THEN RETURN NEW; END IF; IF (OLD.status = 'PLANEJADO' AND NEW.status IN ('ATIVO', 'CANCELADO')) OR (OLD.status = 'ATIVO' AND NEW.status = 'FINALIZADO') THEN RETURN NEW; END IF; RAISE EXCEPTION 'Transicao de status invalida no contrato \%: \% -> \%', OLD.id, OLD.status, NEW.status USING ERRCODE = 'check_violation'; END; $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER tg_contrato_transicao_status
     BEFORE UPDATE OF status ON contrato
     FOR EACH ROW EXECUTE FUNCTION fn_contrato_valida_transicao();
 
 -- RD006: contrato finalizado nao pode ser excluido.
-CREATE FUNCTION fn_contrato_bloqueia_exclusao() RETURNS trigger AS $$
-BEGIN
-    IF OLD.status = 'FINALIZADO' THEN
-        RAISE EXCEPTION 'Contrato % finalizado nao pode ser excluido', OLD.id
-            USING ERRCODE = 'restrict_violation';
-    END IF;
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
+CREATE FUNCTION fn_contrato_bloqueia_exclusao() RETURNS trigger AS $$ BEGIN IF OLD.status = 'FINALIZADO' THEN RAISE EXCEPTION 'Contrato \% finalizado nao pode ser excluido', OLD.id USING ERRCODE = 'restrict_violation'; END IF; RETURN OLD; END; $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER tg_contrato_bloqueia_exclusao
     BEFORE DELETE ON contrato

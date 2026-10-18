@@ -1,0 +1,11 @@
+# Ambientes e Segredos
+.env
+.env.local
+.env.*.local
+
+# Sistema operacional / IDEs
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.iml
