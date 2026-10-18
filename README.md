@@ -22,7 +22,7 @@ Sistema de gestão para locadoras de equipamentos desenvolvido numa arquitetura 
 * PostgreSQL 16
 * Docker
 
-## Equipa do Projeto
+## Equipe do Projeto
 
 ### Liderança Técnica
 * Gustavo Tínel Vitória Fraga (Tech Lead)
