@@ -31,7 +31,7 @@ public class DevolucaoService {
         ItemContratoPrazo itemContrato = contratoApi.buscarItemContrato(request.itemContratoId()).orElseThrow(
             () ->new ItemContratoNaoEncontradoException(request.itemContratoId())
         );
-        
+
          /*trocar por Clock quando houver testes da multa */
         Instant dataDevolucao = Instant.now();
 
@@ -51,8 +51,6 @@ public class DevolucaoService {
         unidadeApi.alterarStatus(itemContrato.unidadeId(), StatusUnidade.EM_VISTORIA);
 
         return DevolucaoDto.recebimentoDevolucao(devolucao);
-
-
     }
 
 }
