@@ -5,15 +5,15 @@ import java.time.Instant;
 
 import br.ufs.ziploc.devolucao.domain.Devolucao;
 
-public record DevolucaoResponse(
+public record DevolucaoDto(
     Long id,
     Long itemContratoId,
     Instant dataDevolucaoReal,
     String observacoes,
     BigDecimal multaAtraso
 ) {
-    public static DevolucaoResponse recebimentoDevolucao(Devolucao devolucao){
-        return new DevolucaoResponse(
+    public static DevolucaoDto recebimentoDevolucao(Devolucao devolucao){
+        return new DevolucaoDto(
             devolucao.getId(),
             devolucao.getItemContratoId(),
             devolucao.getDataDevolucaoReal(),
