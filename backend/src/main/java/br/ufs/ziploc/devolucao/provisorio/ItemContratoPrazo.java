@@ -1,11 +1,15 @@
 package br.ufs.ziploc.devolucao.provisorio;
 
-import java.time.Instant;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record ItemContratoPrazo(
     Long contratoId,
     Long unidadeId,
-    Instant dataFimPrevista
+    LocalDate dataFimPrevista,
+    BigDecimal valorDiaria,
+    BigDecimal percentualMultaAtraso,
+    BigDecimal valorLocacao
 ) {
 
 }
