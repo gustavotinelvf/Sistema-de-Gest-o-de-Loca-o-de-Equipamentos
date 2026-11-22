@@ -16,7 +16,7 @@ public interface ConviteRepository extends JpaRepository<Convite, Long> {
     @Query("""
             select c from Convite c
             where c.status = br.ufs.ziploc.acesso.domain.StatusConvite.PENDENTE
-              and c.dataExpiracao < :agora
+              and c.dataExpiracao <= :agora
             """)
     List<Convite> findPendentesVencidos(@Param("agora") Instant agora);
 }

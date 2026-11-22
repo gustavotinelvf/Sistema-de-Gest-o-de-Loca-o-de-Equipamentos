@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -56,9 +57,17 @@ public class Convite {
     @Column(name = "data_expiracao", nullable = false)
     private Instant dataExpiracao;
 
+    @Column(name = "data_aceite")
+    private Instant dataAceite;
+
     /** Cria um convite PENDENTE. O token (único) é gerado pelo service. */
     public static Convite criar(String email, Perfil perfil, Usuario convidadoPor,
                                 String token, Instant dataExpiracao) {
+        Objects.requireNonNull(email, "email é obrigatório");
+        Objects.requireNonNull(perfil, "perfil é obrigatório");
+        Objects.requireNonNull(convidadoPor, "convidadoPor é obrigatório");
+        Objects.requireNonNull(token, "token é obrigatório");
+        Objects.requireNonNull(dataExpiracao, "dataExpiracao é obrigatória");
         Instant agora = Instant.now();
         if (!dataExpiracao.isAfter(agora)) {
             throw new IllegalArgumentException(
@@ -83,9 +92,14 @@ public class Convite {
         return !agora.isBefore(dataExpiracao);
     }
 
-    public void aceitar() {
+    public void aceitar(Instant agora) {
         exigirPendente("aceitar");
+        if (isVencido(agora)) {
+            throw new IllegalStateException(
+                    "Não é possível aceitar um convite vencido (RD017)");
+        }
         this.status = StatusConvite.ACEITO;
+        this.dataAceite = agora;
     }
 
     public void cancelar() {
