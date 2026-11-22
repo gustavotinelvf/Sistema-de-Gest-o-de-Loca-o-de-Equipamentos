@@ -67,9 +67,18 @@ public class Contrato {
         return Collections.unmodifiableList(itens);
     }
 
-    public void adicionarItem(Long unidadeId) {
+    public void adicionarItem(Long unidadeId, BigDecimal valorDiariaContratada) {
         if (status != StatusContrato.PLANEJADO) throw new IllegalStateException("Só é possível adicionar itens a contratos planejados.");
-        itens.add(new ItemContrato(this, unidadeId));
+        itens.add(new ItemContrato(this, unidadeId, valorDiariaContratada));
+    }
+
+    public void registrarDevolucao(Long itemContratoId, LocalDate data) {
+        if (status != StatusContrato.ATIVO) throw new IllegalStateException("Só é possível registrar devolução em contratos ativos.");
+        itens.stream().filter(i -> itemContratoId.equals(i.getId())).findFirst().orElseThrow(() -> new IllegalArgumentException("Item " + itemContratoId + " não pertence ao contrato " + id + ".")).registrarDevolucao(data);
+    }
+
+    public long contarItensPendentes() {
+        return itens.stream().filter(i -> !i.isDevolvido()).count();
     }
 
     public void ativar() {
@@ -77,6 +86,7 @@ public class Contrato {
     }
 
     public void finalizar() {
+        if (contarItensPendentes() > 0) throw new IllegalStateException("O contrato só pode ser finalizado após a devolução de todas as unidades.");
         transicionarPara(StatusContrato.FINALIZADO);
     }
 
