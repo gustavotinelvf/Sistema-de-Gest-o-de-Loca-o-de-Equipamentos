@@ -66,4 +66,17 @@ public class Fatura {
     @Column(name= "responsavel_pagamento_id")
     private Long responsavelPagamentoId;
 
+    public void marcarPago(LocalDate dataPagamento, Long usuarioId) {
+
+        if(status == StatusFatura.PAGA || status == StatusFatura.CANCELADA){
+            throw new IllegalStateException(
+                "Fatura com status" + status + "não pode ser paga novamente.");
+        }
+
+        this.dataPagamento = dataPagamento;
+        this.responsavelPagamentoId = usuarioId;
+        this.status = StatusFatura.PAGA;
+        
+    }
+
 }
