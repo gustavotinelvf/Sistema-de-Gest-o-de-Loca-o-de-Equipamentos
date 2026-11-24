@@ -3,7 +3,7 @@ package br.ufs.ziploc.locacao.service;
 import br.ufs.ziploc.locacao.api.ContratoApi;
 import br.ufs.ziploc.locacao.api.ContratoNaoEncontradoException;
 import br.ufs.ziploc.locacao.api.ContratoResumo;
-import br.ufs.ziploc.locacao.api.ItemContratoResumo;
+import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.ItemContrato;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
@@ -29,7 +29,7 @@ public class ContratoService implements ContratoApi {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<ItemContratoResumo> buscarItemContrato(Long itemContratoId) {
+    public Optional<ItemContratoPrazo> buscarItemContrato(Long itemContratoId) {
         return itemContratoRepository.findById(itemContratoId).map(ContratoService::paraResumo);
     }
 
@@ -61,8 +61,8 @@ public class ContratoService implements ContratoApi {
         return new ContratoResumo(c.getId(), c.getClienteId(), c.getStatus().name(), c.getDataInicioPrevista(), c.getDataFimPrevista(), c.getValorTotal(), c.getPercentualMulta(), c.getItens().stream().map(ContratoService::paraResumo).toList());
     }
 
-    private static ItemContratoResumo paraResumo(ItemContrato i) {
+    private static ItemContratoPrazo paraResumo(ItemContrato i) {
         Contrato c = i.getContrato();
-        return new ItemContratoResumo(i.getId(), c.getId(), c.getClienteId(), i.getUnidadeId(), i.getDataInicioPrevista(), i.getDataFimPrevista(), i.getDataInicioReal(), i.getDataDevolucaoReal(), i.getValorDiariaContratada(), c.getPercentualMulta(), c.getValorTotal());
+        return new ItemContratoPrazo(i.getId(), c.getId(), c.getClienteId(), i.getUnidadeId(), i.getDataInicioPrevista(), i.getDataFimPrevista(), i.getDataInicioReal(), i.getDataDevolucaoReal(), i.getValorDiariaContratada(), c.getPercentualMulta(), c.getValorTotal());
     }
 }

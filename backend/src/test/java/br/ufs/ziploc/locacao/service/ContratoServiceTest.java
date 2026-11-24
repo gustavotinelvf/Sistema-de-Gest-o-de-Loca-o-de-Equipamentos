@@ -2,7 +2,7 @@ package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.locacao.api.ContratoNaoEncontradoException;
 import br.ufs.ziploc.locacao.api.ContratoResumo;
-import br.ufs.ziploc.locacao.api.ItemContratoResumo;
+import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.ItemContrato;
 import br.ufs.ziploc.locacao.domain.Solicitacao;
@@ -61,12 +61,12 @@ class ContratoServiceTest {
     @Test
     void buscaItemComDadosDoContrato() {
         when(itemContratoRepository.findById(50L)).thenReturn(Optional.of(item));
-        ItemContratoResumo resumo = service.buscarItemContrato(50L).orElseThrow();
+        ItemContratoPrazo resumo = service.buscarItemContrato(50L).orElseThrow();
         assertThat(resumo.contratoId()).isEqualTo(7L);
         assertThat(resumo.unidadeId()).isEqualTo(10L);
         assertThat(resumo.dataFimPrevista()).isEqualTo(FIM);
         assertThat(resumo.percentualMulta()).isEqualByComparingTo("2.00");
-        assertThat(resumo.valorTotalContrato()).isEqualByComparingTo("1000.00");
+        assertThat(resumo.valorLocacao()).isEqualByComparingTo("1000.00");
     }
 
     @Test

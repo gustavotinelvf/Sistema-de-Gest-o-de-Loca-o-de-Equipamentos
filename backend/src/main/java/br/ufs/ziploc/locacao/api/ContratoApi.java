@@ -6,7 +6,7 @@ import java.util.Optional;
 public interface ContratoApi {
     Optional<ContratoResumo> buscarContrato(Long contratoId);
 
-    Optional<ItemContratoResumo> buscarItemContrato(Long itemContratoId);
+    Optional<ItemContratoPrazo> buscarItemContrato(Long itemContratoId);
 
     void registrarDevolucao(Long itemContratoId, LocalDate dataDevolucao);
 
