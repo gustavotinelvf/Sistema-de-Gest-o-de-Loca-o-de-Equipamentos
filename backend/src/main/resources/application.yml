@@ -1,1 +1,28 @@
-spring.application.name=ziploc
+spring:
+  application:
+    name: ziploc
+
+  # Importa as variáveis do arquivo .env (DB_USER, DB_PASS, DB_NAME).
+  # Procura tanto na pasta atual quanto na pasta pai, pois o .env fica na raiz
+  # do repositório e a aplicação pode ser iniciada de dentro de "backend/".
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  # Conexão com o PostgreSQL que roda no Docker (docker-compose.yml).
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+
+  jpa:
+    # O esquema do banco é controlado pelo Flyway; o Hibernate apenas valida.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    # Scripts de migração ficam em src/main/resources/db/migration (V1__descricao.sql, ...).
+    locations: classpath:db/migration
+

@@ -96,6 +96,24 @@ public class Contrato {
         this.justificativaCancelamento = justificativa.strip();
     }
 
+    /**
+     * Estende o fim do contrato. O banco propaga a nova data aos itens (FK composta com ON UPDATE CASCADE)
+     * e a constraint anti-overbooking rejeita a mudança se alguma unidade já estiver reservada no período novo.
+     */
+    public void prorrogar(LocalDate novaDataFim, BigDecimal acrescimoValor) {
+        if (status != StatusContrato.ATIVO) throw new IllegalStateException("Só é possível prorrogar contratos ativos (status atual: " + status + ").");
+        if (novaDataFim == null || !novaDataFim.isAfter(dataFimPrevista)) throw new IllegalArgumentException("A nova data de fim deve ser posterior à data de fim atual (" + dataFimPrevista + ").");
+        if (acrescimoValor == null || acrescimoValor.signum() < 0) throw new IllegalArgumentException("O acréscimo de valor não pode ser negativo.");
+        this.dataFimPrevista = novaDataFim;
+        this.valorTotal = valorTotal.add(acrescimoValor);
+    }
+
+    /** Remove os itens de um contrato cancelado para que as unidades deixem de ficar reservadas no período. */
+    public void liberarReservas() {
+        if (status != StatusContrato.CANCELADO) throw new IllegalStateException("Só é possível liberar as reservas de um contrato cancelado.");
+        itens.clear();
+    }
+
     private void transicionarPara(StatusContrato destino) {
         if (!status.podeTransicionarPara(destino)) throw new IllegalStateException("Transição de status inválida: " + status + " → " + destino + ".");
         this.status = destino;
