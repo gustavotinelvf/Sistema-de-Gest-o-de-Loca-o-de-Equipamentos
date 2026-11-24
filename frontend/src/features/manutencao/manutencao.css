@@ -1,0 +1,149 @@
+.man-pagina {
+  --man-fundo: #000;
+  --man-cartao: #0b0b0d;
+  --man-borda: #26262b;
+  --man-texto: #f4f4f5;
+  --man-texto-suave: #9a9aa3;
+  --man-destaque: #a21fff;
+  --man-erro: #ff6b6b;
+
+  color-scheme: dark;
+  background: var(--man-fundo);
+  color: var(--man-texto);
+  min-height: 100vh;
+  padding: 32px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.man-sobretitulo {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--man-texto-suave);
+}
+.man-cabecalho h1 {
+  margin: 4px 0;
+  font-size: 32px;
+}
+.man-cabecalho p {
+  margin: 0;
+  color: var(--man-texto-suave);
+}
+.man-cartao {
+  background: var(--man-cartao);
+  border: 1px solid var(--man-borda);
+  border-radius: 12px;
+  padding: 24px;
+}
+.man-cartao h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+.man-formulario {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.man-formulario label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--man-texto-suave);
+}
+.man-pagina input,
+.man-pagina textarea {
+  background: #000;
+  color: var(--man-texto);
+  border: 1px solid var(--man-borda);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+.man-pagina input:focus,
+.man-pagina textarea:focus {
+  outline: 2px solid var(--man-destaque);
+}
+.man-erro {
+  color: var(--man-erro);
+  font-size: 12px;
+  margin: 0;
+}
+.man-botao {
+  justify-self: start;
+  background: var(--man-destaque);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.man-botao:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.man-busca {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.man-busca input {
+  flex: 1;
+}
+.man-vazio {
+  color: var(--man-texto-suave);
+  margin: 0;
+}
+.man-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.man-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--man-borda);
+}
+.man-item-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.man-item-detalhe {
+  font-size: 13px;
+  color: var(--man-texto-suave);
+}
+.man-status {
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.man-status-aguardando {
+  background: #3a2f0b;
+  color: #ffd166;
+}
+.man-status-em_andamento {
+  background: #2a1245;
+  color: #d9a8ff;
+}
+.man-status-concluida {
+  background: #0f2f1d;
+  color: #6ee7a0;
+}
+.man-concluir {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.man-concluir input {
+  max-width: 220px;
+}
