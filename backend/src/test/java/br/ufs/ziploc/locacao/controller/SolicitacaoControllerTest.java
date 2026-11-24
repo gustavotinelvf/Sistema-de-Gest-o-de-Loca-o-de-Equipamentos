@@ -1,16 +1,22 @@
 package br.ufs.ziploc.locacao.controller;
 
+import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
+import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
 import br.ufs.ziploc.locacao.service.SolicitacaoNaoEncontradaException;
 import br.ufs.ziploc.locacao.service.SolicitacaoService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -34,6 +40,36 @@ class SolicitacaoControllerTest {
 
     private MockHttpServletRequestBuilder reprovar(Long id, String corpo) {
         return post("/api/solicitacoes/{id}/reprovacao", id).with(csrf()).with(user("5").roles("GERENTE")).contentType(MediaType.APPLICATION_JSON).content(corpo);
+    }
+
+    private MockHttpServletRequestBuilder aprovar(String corpo) {
+        return post("/api/solicitacoes/7/aprovacao").with(csrf()).with(user("5").roles("GERENTE")).contentType(MediaType.APPLICATION_JSON).content(corpo);
+    }
+
+    @Test
+    void aprovaERespondeCriado() throws Exception {
+        ContratoDTO dto = new ContratoDTO(70L, 7L, 1L, null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10), "PLANEJADO", new BigDecimal("1000.00"), new BigDecimal("12.50"), List.of());
+        when(solicitacaoService.aprovar(7L, 5L, new BigDecimal("12.50"))).thenReturn(dto);
+        mvc.perform(aprovar("{\"percentualMulta\":12.50}")).andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(70)).andExpect(jsonPath("$.status").value("PLANEJADO"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"percentualMulta\":-1}", "{\"percentualMulta\":100.01}", "{\"percentualMulta\":1.234}", ""})
+    void recusaPercentualInvalido(String corpo) throws Exception {
+        mvc.perform(aprovar(corpo)).andExpect(status().isBadRequest());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @Test
+    void respondeConflitoComFaltas() throws Exception {
+        when(solicitacaoService.aprovar(any(), any(), any())).thenThrow(new IndisponibilidadeException(List.of(new IndisponibilidadeException.Falta(30L, 2, 1))));
+        mvc.perform(aprovar("{\"percentualMulta\":10}")).andExpect(status().isConflict()).andExpect(jsonPath("$.faltas[0].modeloId").value(30));
+    }
+
+    @Test
+    void respondeConflitoQuandoBancoRecusaReserva() throws Exception {
+        when(solicitacaoService.aprovar(any(), any(), any())).thenThrow(new DataIntegrityViolationException("falha", new RuntimeException("viola ex_item_contrato_sem_overbooking")));
+        mvc.perform(aprovar("{\"percentualMulta\":10}")).andExpect(status().isConflict());
     }
 
     @Test
