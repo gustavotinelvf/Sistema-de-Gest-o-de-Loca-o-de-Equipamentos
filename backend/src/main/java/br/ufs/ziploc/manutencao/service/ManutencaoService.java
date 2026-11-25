@@ -3,6 +3,7 @@ package br.ufs.ziploc.manutencao.service;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.manutencao.domain.Manutencao;
 import br.ufs.ziploc.manutencao.dto.ManutencaoDto;
+import br.ufs.ziploc.manutencao.provisorio.DevolucaoApi;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ public class ManutencaoService {
 
     private final ManutencaoRepository manutencoes;
     private final UnidadeApi unidadeApi;
+    /* TODO: PROVISÓRIO. Trocar por br.ufs.ziploc.devolucao.api.DevolucaoApi quando o colega publicar registrarDanos. */
+    private final DevolucaoApi devolucaoApi;
 
     /** Manutenção avulsa: o técnico informa o número de série (sem vistoria). */
     @Transactional
@@ -40,8 +43,18 @@ public class ManutencaoService {
 
         manutencao.concluir(Instant.now(), custoReparo.setScale(2, RoundingMode.HALF_UP));
         unidadeApi.liberar(manutencao.getUnidadeId());
+        Manutencao salva = manutencoes.saveAndFlush(manutencao);
 
-        return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
+        /*
+         * Só manutenção originada de vistoria gera dano para a fatura. A avulsa (vistoriaId nulo) não tem
+         * devolução por trás. A Devolução resolve unidade -> item do contrato -> contrato do lado dela.
+         * TODO: PROVISÓRIO até existir DevolucaoApi.registrarDanos(Long unidadeId, BigDecimal valor) na devolucao/api.
+         */
+        if (salva.getVistoriaId() != null) {
+            devolucaoApi.registrarDanos(salva.getUnidadeId(), salva.getCustoReparo());
+        }
+
+        return ManutencaoDto.de(salva);
     }
 
     @Transactional(readOnly = true)
