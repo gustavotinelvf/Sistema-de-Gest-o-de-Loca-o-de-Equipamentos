@@ -10,5 +10,6 @@ public interface ManutencaoRepository extends JpaRepository<Manutencao, Long> {
 
     List<Manutencao> findByUnidadeIdOrderByDataInicioDesc(Long unidadeId);
 
-    Optional<Manutencao> findByVistoriaId(Long vistoriaId);
+    /** Manutenção ainda aberta (sem data de conclusão) da unidade. */
+    Optional<Manutencao> findFirstByUnidadeIdAndDataConclusaoIsNull(Long unidadeId);
 }

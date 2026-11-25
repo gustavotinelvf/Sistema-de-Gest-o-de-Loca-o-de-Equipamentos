@@ -31,8 +31,11 @@ public class ManutencaoController {
     @PreAuthorize("hasRole('TECNICO')")
     public ResponseEntity<ManutencaoDto> iniciar(@Valid @RequestBody IniciarManutencaoRequest request,
                                                  Authentication autenticacao) {
-        ManutencaoDto criada = manutencaoService.iniciarAvulsa(
-                request.numeroSerie(), request.descricaoProblema(), Long.valueOf(autenticacao.getName()));
+        /* TODO: locadoraId provisório, igual ao DevolucaoController, até a segurança fornecer a locadora do usuário. */
+        Long locadoraId = 1L;
+
+        ManutencaoDto criada = manutencaoService.iniciarAvulsa(locadoraId, request.numeroSerie(), request.tipo(),
+                request.descricao(), request.dataPrevista(), Long.valueOf(autenticacao.getName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(criada);
     }
 
@@ -40,7 +43,7 @@ public class ManutencaoController {
     @PreAuthorize("hasRole('TECNICO')")
     public ResponseEntity<ManutencaoDto> concluir(@PathVariable("id") Long id,
                                                   @Valid @RequestBody ConcluirManutencaoRequest request) {
-        return ResponseEntity.ok(manutencaoService.concluir(id, request.custoReparo()));
+        return ResponseEntity.ok(manutencaoService.concluir(id, request.custoGerado(), request.justificativaAtraso()));
     }
 
     @GetMapping

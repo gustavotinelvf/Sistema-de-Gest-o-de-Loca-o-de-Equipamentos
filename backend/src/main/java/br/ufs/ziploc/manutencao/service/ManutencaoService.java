@@ -2,6 +2,7 @@ package br.ufs.ziploc.manutencao.service;
 
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.manutencao.domain.Manutencao;
+import br.ufs.ziploc.manutencao.domain.TipoManutencao;
 import br.ufs.ziploc.manutencao.dto.ManutencaoDto;
 import br.ufs.ziploc.manutencao.provisorio.DevolucaoApi;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
@@ -24,36 +25,33 @@ public class ManutencaoService {
     /* TODO: PROVISÓRIO. Trocar por br.ufs.ziploc.devolucao.api.DevolucaoApi quando o colega publicar registrarDanos. */
     private final DevolucaoApi devolucaoApi;
 
-    /** Manutenção avulsa: o técnico informa o número de série (sem vistoria). */
+    /** Manutenção avulsa: o técnico informa o número de série. */
     @Transactional
-    public ManutencaoDto iniciarAvulsa(String numeroSerie, String descricaoProblema, Long usuarioTecnicoId) {
+    public ManutencaoDto iniciarAvulsa(Long locadoraId, String numeroSerie, TipoManutencao tipo,
+                                       String descricao, Instant dataPrevista, Long tecnicoId) {
         Long unidadeId = buscarUnidadeId(numeroSerie);
 
         // Lança IllegalStateException (409) se a unidade não puder entrar em manutenção.
         unidadeApi.iniciarManutencao(unidadeId);
 
-        Manutencao manutencao = new Manutencao(unidadeId, null, usuarioTecnicoId, descricaoProblema, Instant.now());
+        Manutencao manutencao = new Manutencao(locadoraId, unidadeId, tecnicoId, tipo, descricao,
+                dataPrevista, Instant.now());
         return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
     }
 
     @Transactional
-    public ManutencaoDto concluir(Long id, BigDecimal custoReparo) {
+    public ManutencaoDto concluir(Long id, BigDecimal custoGerado, String justificativaAtraso) {
         Manutencao manutencao = manutencoes.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Manutenção " + id + " não encontrada."));
 
-        manutencao.concluir(Instant.now(), custoReparo.setScale(2, RoundingMode.HALF_UP));
+        // IllegalState (409) se já concluída; IllegalArgument (422) para RD023 e dados inválidos.
+        manutencao.concluir(Instant.now(), custoGerado.setScale(2, RoundingMode.HALF_UP), justificativaAtraso);
         unidadeApi.liberar(manutencao.getUnidadeId());
         Manutencao salva = manutencoes.saveAndFlush(manutencao);
 
-        /*
-         * Só manutenção originada de vistoria gera dano para a fatura. A avulsa (vistoriaId nulo) não tem
-         * devolução por trás. A Devolução resolve unidade -> item do contrato -> contrato do lado dela.
-         * TODO: PROVISÓRIO até existir DevolucaoApi.registrarDanos(Long unidadeId, BigDecimal valor) na devolucao/api.
-         */
-        if (salva.getVistoriaId() != null) {
-            devolucaoApi.registrarDanos(salva.getUnidadeId(), salva.getCustoReparo());
+        if (deveRepassarDanos(salva)) {
+            devolucaoApi.registrarDanos(salva.getUnidadeId(), salva.getCustoGerado());
         }
-
         return ManutencaoDto.de(salva);
     }
 
@@ -63,6 +61,16 @@ public class ManutencaoService {
         return manutencoes.findByUnidadeIdOrderByDataInicioDesc(unidadeId).stream()
                 .map(ManutencaoDto::de)
                 .toList();
+    }
+
+    /*
+     * TODO: PROVISÓRIO. O banco (pgerd) não tem vistoria_id na manutencao, então não dá para saber se ela
+     * veio de uma vistoria. Critério temporário: CORRETIVA com custo maior que zero. Problema: uma manutenção
+     * avulsa CORRETIVA (unidade quebrada no estoque) também repassaria. Combinar com o grupo: coluna
+     * vistoria_id em manutencao, ou outra regra. Só este método precisa mudar.
+     */
+    private boolean deveRepassarDanos(Manutencao manutencao) {
+        return manutencao.getTipo() == TipoManutencao.CORRETIVA && manutencao.getCustoGerado().signum() > 0;
     }
 
     private Long buscarUnidadeId(String numeroSerie) {
