@@ -43,7 +43,7 @@ class AuthServiceTest {
     }
 
     private Usuario usuarioAtivo() {
-        Usuario u = Usuario.criarAtivo("Ana", "ana@x.com", "hash-bcrypt", Perfil.ATENDENTE, null);
+        Usuario u = Usuario.criarAtivo(1L, "Ana", "ana@x.com", "hash-bcrypt", Perfil.ATENDENTE, null);
         ReflectionTestUtils.setField(u, "id", 7L);
         return u;
     }

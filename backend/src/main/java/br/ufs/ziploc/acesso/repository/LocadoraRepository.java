@@ -6,8 +6,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface LocadoraRepository extends JpaRepository<Locadora, Long> {
 
-    /** A locadora é uma linha única (id = 1). */
+    Optional<Locadora> findFirstByOrderByIdAsc();
+
+    /** O sistema usa uma só locadora: a primeira (e única) linha. */
     default Optional<Locadora> findUnica() {
-        return findById(Locadora.ID_UNICO);
+        return findFirstByOrderByIdAsc();
     }
 }
