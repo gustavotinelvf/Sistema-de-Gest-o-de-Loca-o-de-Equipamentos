@@ -1,6 +1,7 @@
 package br.ufs.ziploc.manutencao;
 
 import br.ufs.ziploc.manutencao.domain.Manutencao;
+import br.ufs.ziploc.manutencao.domain.TipoManutencao;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
 import br.ufs.ziploc.manutencao.service.ManutencaoApiImpl;
 import org.junit.jupiter.api.Test;
@@ -26,33 +27,33 @@ class ManutencaoApiImplTest {
     @InjectMocks ManutencaoApiImpl api;
 
     @Test
-    void abrirAPartirDeVistoria_vistoriaNova_criaManutencaoEmAndamento() {
-        when(manutencoes.findByVistoriaId(99L)).thenReturn(Optional.empty());
+    void abrirAPartirDeVistoria_semManutencaoAberta_criaCorretiva() {
+        when(manutencoes.findFirstByUnidadeIdAndDataConclusaoIsNull(5L)).thenReturn(Optional.empty());
         when(manutencoes.save(any(Manutencao.class))).thenAnswer(i -> i.getArgument(0));
 
-        var resumo = api.abrirAPartirDeVistoria(99L, 5L, 7L, "Tela quebrada");
+        var resumo = api.abrirAPartirDeVistoria(1L, 5L, 7L, "Tela quebrada");
 
-        assertThat(resumo.vistoriaId()).isEqualTo(99L);
         assertThat(resumo.unidadeId()).isEqualTo(5L);
-        assertThat(resumo.status()).isEqualTo("EM_ANDAMENTO");
+        assertThat(resumo.tipo()).isEqualTo("CORRETIVA");
     }
 
     @Test
-    void abrirAPartirDeVistoria_vistoriaJaTemManutencao_naoCriaOutra() {
-        Manutencao existente = new Manutencao(5L, 99L, 7L, "Tela quebrada", Instant.parse("2020-01-01T00:00:00Z"));
-        when(manutencoes.findByVistoriaId(99L)).thenReturn(Optional.of(existente));
+    void abrirAPartirDeVistoria_jaTemManutencaoAberta_naoCriaOutra() {
+        Manutencao existente = new Manutencao(1L, 5L, 7L, TipoManutencao.CORRETIVA, "Tela quebrada", null,
+                Instant.parse("2020-01-01T00:00:00Z"));
+        when(manutencoes.findFirstByUnidadeIdAndDataConclusaoIsNull(5L)).thenReturn(Optional.of(existente));
 
-        var resumo = api.abrirAPartirDeVistoria(99L, 5L, 7L, "Tela quebrada");
+        var resumo = api.abrirAPartirDeVistoria(1L, 5L, 7L, "Tela quebrada");
 
         verify(manutencoes, never()).save(any());
-        assertThat(resumo.vistoriaId()).isEqualTo(99L);
+        assertThat(resumo.unidadeId()).isEqualTo(5L);
     }
 
     @Test
     void abrirAPartirDeVistoria_semDescricao_lancaIllegalArgument() {
-        when(manutencoes.findByVistoriaId(99L)).thenReturn(Optional.empty());
+        when(manutencoes.findFirstByUnidadeIdAndDataConclusaoIsNull(5L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> api.abrirAPartirDeVistoria(99L, 5L, 7L, "  "))
+        assertThatThrownBy(() -> api.abrirAPartirDeVistoria(1L, 5L, 7L, "  "))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(manutencoes, never()).save(any());
     }

@@ -25,62 +25,81 @@ public class Manutencao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "locadora_id", nullable = false)
+    private Long locadoraId;
+
     @Column(name = "unidade_id", nullable = false)
     private Long unidadeId;
 
-    /** Nulo = manutenção avulsa (o técnico escolhe a unidade pelo número de série). */
-    @Column(name = "vistoria_id")
-    private Long vistoriaId;
+    @Column(name = "tecnico_id", nullable = false)
+    private Long tecnicoId;
 
-    @Column(name = "usuario_tecnico_id", nullable = false)
-    private Long usuarioTecnicoId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false, length = 15)
+    private TipoManutencao tipo;
+
+    @Column(name = "descricao", nullable = false)
+    private String descricao;
+
+    @Column(name = "custo_gerado", nullable = false, precision = 12, scale = 2)
+    private BigDecimal custoGerado;
 
     @Column(name = "data_inicio", nullable = false)
     private Instant dataInicio;
 
-    @Column(name = "data_fim")
-    private Instant dataFim;
+    @Column(name = "data_prevista")
+    private Instant dataPrevista;
 
-    @Column(name = "descricao_problema", nullable = false)
-    private String descricaoProblema;
+    @Column(name = "data_conclusao")
+    private Instant dataConclusao;
 
-    @Column(name = "custo_reparo", nullable = false, precision = 10, scale = 2)
-    private BigDecimal custoReparo;
+    @Column(name = "justificativa_atraso")
+    private String justificativaAtraso;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private StatusManutencao status;
-
-    public Manutencao(Long unidadeId, Long vistoriaId, Long usuarioTecnicoId,
-                      String descricaoProblema, Instant dataInicio) {
+    public Manutencao(Long locadoraId, Long unidadeId, Long tecnicoId, TipoManutencao tipo,
+                      String descricao, Instant dataPrevista, Instant dataInicio) {
+        if (locadoraId == null) throw new IllegalArgumentException("A locadora é obrigatória.");
         if (unidadeId == null) throw new IllegalArgumentException("A unidade é obrigatória.");
-        if (usuarioTecnicoId == null) throw new IllegalArgumentException("O técnico é obrigatório.");
-        if (descricaoProblema == null || descricaoProblema.isBlank()) {
-            throw new IllegalArgumentException("A descrição do problema é obrigatória.");
-        }
+        if (tecnicoId == null) throw new IllegalArgumentException("O técnico é obrigatório.");
+        if (tipo == null) throw new IllegalArgumentException("O tipo da manutenção é obrigatório.");
+        if (descricao == null || descricao.isBlank()) throw new IllegalArgumentException("A descrição é obrigatória.");
         if (dataInicio == null) throw new IllegalArgumentException("A data de início é obrigatória.");
+        if (dataPrevista != null && dataPrevista.isBefore(dataInicio)) {
+            throw new IllegalArgumentException("A data prevista não pode ser anterior ao início.");
+        }
+        this.locadoraId = locadoraId;
         this.unidadeId = unidadeId;
-        this.vistoriaId = vistoriaId;
-        this.usuarioTecnicoId = usuarioTecnicoId;
-        this.descricaoProblema = descricaoProblema.strip();
+        this.tecnicoId = tecnicoId;
+        this.tipo = tipo;
+        this.descricao = descricao.strip();
+        this.dataPrevista = dataPrevista;
         this.dataInicio = dataInicio;
-        this.custoReparo = BigDecimal.ZERO;
-        this.status = StatusManutencao.EM_ANDAMENTO;
+        this.custoGerado = BigDecimal.ZERO;
     }
 
     public boolean estaConcluida() {
-        return status == StatusManutencao.CONCLUIDA;
+        return dataConclusao != null;
     }
 
-    public void concluir(Instant dataFim, BigDecimal custoReparo) {
+    public void concluir(Instant dataConclusao, BigDecimal custoGerado, String justificativaAtraso) {
         if (estaConcluida()) throw new IllegalStateException("A manutenção " + id + " já foi concluída.");
-        if (dataFim == null) throw new IllegalArgumentException("A data de fim é obrigatória.");
-        if (dataFim.isBefore(dataInicio)) throw new IllegalArgumentException("A data de fim não pode ser anterior ao início.");
-        if (custoReparo == null || custoReparo.signum() < 0) {
-            throw new IllegalArgumentException("O custo do reparo não pode ser negativo.");
+        if (dataConclusao == null) throw new IllegalArgumentException("A data de conclusão é obrigatória.");
+        if (dataConclusao.isBefore(dataInicio)) {
+            throw new IllegalArgumentException("A data de conclusão não pode ser anterior ao início.");
         }
-        this.dataFim = dataFim;
-        this.custoReparo = custoReparo;
-        this.status = StatusManutencao.CONCLUIDA;
+        if (custoGerado == null || custoGerado.signum() < 0) {
+            throw new IllegalArgumentException("O custo gerado não pode ser negativo.");
+        }
+
+        String justificativa = (justificativaAtraso == null || justificativaAtraso.isBlank())
+                ? null : justificativaAtraso.strip();
+        if (dataPrevista != null && dataConclusao.isAfter(dataPrevista) && justificativa == null) {
+            throw new IllegalArgumentException(
+                    "RD023: a conclusão após a data prevista exige justificativa do atraso.");
+        }
+
+        this.dataConclusao = dataConclusao;
+        this.custoGerado = custoGerado;
+        this.justificativaAtraso = justificativa;
     }
 }

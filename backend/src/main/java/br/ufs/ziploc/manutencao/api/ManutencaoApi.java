@@ -7,9 +7,10 @@ package br.ufs.ziploc.manutencao.api;
 public interface ManutencaoApi {
 
     /**
-     * Abre a manutenção de uma unidade a partir de uma vistoria reprovada. Idempotente: se a vistoria já
-     * tem manutenção, devolve a existente. Quem muda o status da unidade para EM_MANUTENCAO é a Vistoria.
+     * Abre uma manutenção CORRETIVA para a unidade, a partir de uma vistoria reprovada.
+     * Idempotente: se a unidade já tem manutenção aberta, devolve a existente.
+     * Quem muda o status da unidade para EM_MANUTENCAO é a Vistoria.
      */
-    ManutencaoResumo abrirAPartirDeVistoria(Long vistoriaId, Long unidadeId,
-                                            Long usuarioTecnicoId, String descricaoProblema);
+    ManutencaoResumo abrirAPartirDeVistoria(Long locadoraId, Long unidadeId,
+                                            Long tecnicoId, String descricaoAvarias);
 }
