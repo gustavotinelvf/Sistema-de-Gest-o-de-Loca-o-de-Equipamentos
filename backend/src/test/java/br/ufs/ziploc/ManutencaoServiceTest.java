@@ -3,6 +3,7 @@ package br.ufs.ziploc.manutencao;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.manutencao.domain.Manutencao;
 import br.ufs.ziploc.manutencao.domain.StatusManutencao;
+import br.ufs.ziploc.manutencao.provisorio.DevolucaoApi;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
 import br.ufs.ziploc.manutencao.service.ManutencaoService;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +34,7 @@ class ManutencaoServiceTest {
 
     @Mock ManutencaoRepository manutencoes;
     @Mock UnidadeApi unidadeApi;
+    @Mock DevolucaoApi devolucaoApi;
     @InjectMocks ManutencaoService service;
 
     @Test
@@ -75,28 +78,42 @@ class ManutencaoServiceTest {
     }
 
     @Test
-    void concluir_jaConcluida_lancaIllegalState_eNaoLiberaUnidade() {
-        Manutencao concluida = new Manutencao(10L, null, 7L, "defeito", INICIO);
+    void concluir_jaConcluida_lancaIllegalState_eNaoLiberaNemRepassa() {
+        Manutencao concluida = new Manutencao(10L, 99L, 7L, "defeito", INICIO);
         concluida.concluir(Instant.parse("2020-01-02T00:00:00Z"), BigDecimal.ONE);
         when(manutencoes.findById(5L)).thenReturn(Optional.of(concluida));
 
         assertThatThrownBy(() -> service.concluir(5L, BigDecimal.TEN))
                 .isInstanceOf(IllegalStateException.class);
         verify(unidadeApi, never()).liberar(any());
+        verifyNoInteractions(devolucaoApi);
     }
 
     @Test
-    void concluir_ok_liberaUnidade_eArredondaCusto() {
-        Manutencao aberta = new Manutencao(10L, null, 7L, "defeito", INICIO);
-        when(manutencoes.findById(5L)).thenReturn(Optional.of(aberta));
+    void concluir_avulsa_liberaUnidade_arredondaCusto_eNaoRepassaDanos() {
+        Manutencao avulsa = new Manutencao(10L, null, 7L, "defeito", INICIO);
+        when(manutencoes.findById(5L)).thenReturn(Optional.of(avulsa));
         when(manutencoes.saveAndFlush(any(Manutencao.class))).thenAnswer(i -> i.getArgument(0));
 
         var dto = service.concluir(5L, new BigDecimal("150.555"));
 
         verify(unidadeApi).liberar(10L);
+        verifyNoInteractions(devolucaoApi);
         assertThat(dto.custoReparo()).isEqualByComparingTo("150.56");
         assertThat(dto.dataFim()).isNotNull();
         assertThat(dto.status()).isEqualTo(StatusManutencao.CONCLUIDA);
+    }
+
+    @Test
+    void concluir_comVistoria_liberaUnidade_eRepassaDanosParaDevolucao() {
+        Manutencao deVistoria = new Manutencao(10L, 99L, 7L, "Tela quebrada", INICIO);
+        when(manutencoes.findById(5L)).thenReturn(Optional.of(deVistoria));
+        when(manutencoes.saveAndFlush(any(Manutencao.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.concluir(5L, new BigDecimal("150.555"));
+
+        verify(unidadeApi).liberar(10L);
+        verify(devolucaoApi).registrarDanos(10L, new BigDecimal("150.56"));
     }
 
     @Test
