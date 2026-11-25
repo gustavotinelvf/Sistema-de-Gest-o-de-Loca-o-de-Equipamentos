@@ -1,8 +1,15 @@
 package br.ufs.ziploc.manutencao.api;
 
-import br.ufs.ziploc.manutencao.dto.ManutencaoDto;
-
+/**
+ * Porta de entrada do módulo manutenção para os demais módulos.
+ * Participa da transação do chamador.
+ */
 public interface ManutencaoApi {
-    ManutencaoDto abrirAPartirDeVistoria(Long vistoriaId, Long unidadeId,
-                                         Long tecnicoId, String descricaoProblema);
+
+    /**
+     * Abre a manutenção de uma unidade a partir de uma vistoria reprovada. Idempotente: se a vistoria já
+     * tem manutenção, devolve a existente. Quem muda o status da unidade para EM_MANUTENCAO é a Vistoria.
+     */
+    ManutencaoResumo abrirAPartirDeVistoria(Long vistoriaId, Long unidadeId,
+                                            Long usuarioTecnicoId, String descricaoProblema);
 }
