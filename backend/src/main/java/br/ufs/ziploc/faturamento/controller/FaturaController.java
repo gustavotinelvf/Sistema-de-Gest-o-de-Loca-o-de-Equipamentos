@@ -25,10 +25,11 @@ public class FaturaController {
 
     @PostMapping("/{id}/pagamento")
     @PreAuthorize("hasAnyRole('FINANCEIRO','GERENTE')")
-    public ResponseEntity<FaturaDto> registrar(@PathVariable Long id, @RequestParam Long locadoraId, @RequestParam Long usuarioId) {
+    public ResponseEntity<FaturaDto> registrar(@PathVariable Long id) {
 
-        /*Dúvida sobre aplicação correta destes requestParam. Como eu autorizei ao financeiro, não sei se fiz correto o acesso */
-        /*Verificar essa parte do acesso aos parâmetros locadoraId e usuarioId se foram feitos corretamente */
+        Long locadoraId = 1L;
+        Long usuarioId = 1L;
+        /*TODO: Preciso desses dados validados. Dúvida em relação a isto, como conseguir esses dados? Vem das outras equipes */
         FaturaDto faturaDto = faturaService.registrarPagamento(id,locadoraId,usuarioId);
         return ResponseEntity.ok(faturaDto);
     }
