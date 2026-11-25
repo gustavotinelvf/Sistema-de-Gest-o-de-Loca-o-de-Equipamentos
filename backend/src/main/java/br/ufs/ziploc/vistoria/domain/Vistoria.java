@@ -12,8 +12,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 
 @Entity
@@ -26,53 +24,65 @@ public class Vistoria {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "locadora_id", nullable = false)
+    private Long locadoraId;
+
     @Column(name = "devolucao_id", nullable = false, unique = true)
     private Long devolucaoId;
 
-    @Column(name = "usuario_tecnico_id", nullable = false)
-    private Long usuarioTecnicoId;
+    @Column(name = "tecnico_id", nullable = false)
+    private Long tecnicoId;
 
-    @Column(name = "data_vistoria", nullable = false)
-    private Instant dataVistoria;
+    @Column(name = "data_inicio", nullable = false)
+    private Instant dataInicio;
+
+    @Column(name = "data_conclusao")
+    private Instant dataConclusao;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private StatusVistoria status;
+    @Column(name = "resultado", length = 10)
+    private ResultadoVistoria resultado;
 
-    @Column(name = "custo_dano", nullable = false, precision = 10, scale = 2)
-    private BigDecimal custoDano;
+    @Column(name = "descricao_avarias")
+    private String descricaoAvarias;
 
-    @Column(name = "laudo")
-    private String laudo;
-
-    public Vistoria(Long devolucaoId, Long usuarioTecnicoId, Instant dataVistoria,
-                    StatusVistoria status, BigDecimal custoDano, String laudo) {
+    public Vistoria(Long locadoraId, Long devolucaoId, Long tecnicoId, Instant dataInicio) {
+        if (locadoraId == null) throw new IllegalArgumentException("A locadora é obrigatória.");
         if (devolucaoId == null) throw new IllegalArgumentException("A devolução é obrigatória.");
-        if (usuarioTecnicoId == null) throw new IllegalArgumentException("O técnico é obrigatório.");
-        if (dataVistoria == null) throw new IllegalArgumentException("A data da vistoria é obrigatória.");
-        if (status == null) throw new IllegalArgumentException("O status da vistoria é obrigatório.");
-
-        BigDecimal custo = custoDano == null ? BigDecimal.ZERO : custoDano.setScale(2, RoundingMode.HALF_UP);
-        if (custo.signum() < 0) throw new IllegalArgumentException("O custo do dano não pode ser negativo.");
-
-        String laudoLimpo = (laudo == null || laudo.isBlank()) ? null : laudo.strip();
-        boolean reprovada = status == StatusVistoria.REPROVADA_COM_DANOS;
-        if (reprovada && laudoLimpo == null) {
-            throw new IllegalArgumentException("RD022: o laudo é obrigatório quando a vistoria é reprovada.");
-        }
-        if (!reprovada && custo.signum() > 0) {
-            throw new IllegalArgumentException("Uma vistoria aprovada não pode ter custo de dano.");
-        }
-
+        if (tecnicoId == null) throw new IllegalArgumentException("O técnico é obrigatório.");
+        if (dataInicio == null) throw new IllegalArgumentException("A data de início é obrigatória.");
+        this.locadoraId = locadoraId;
         this.devolucaoId = devolucaoId;
-        this.usuarioTecnicoId = usuarioTecnicoId;
-        this.dataVistoria = dataVistoria;
-        this.status = status;
-        this.custoDano = custo;
-        this.laudo = laudoLimpo;
+        this.tecnicoId = tecnicoId;
+        this.dataInicio = dataInicio;
+    }
+
+    public boolean estaConcluida() {
+        return dataConclusao != null;
     }
 
     public boolean reprovada() {
-        return status == StatusVistoria.REPROVADA_COM_DANOS;
+        return resultado == ResultadoVistoria.REPROVADA;
+    }
+
+    public void concluir(ResultadoVistoria resultado, String descricaoAvarias, Instant dataConclusao) {
+        if (estaConcluida()) {
+            throw new IllegalStateException("A vistoria da devolução " + devolucaoId + " já foi concluída.");
+        }
+        if (resultado == null) throw new IllegalArgumentException("O resultado da vistoria é obrigatório.");
+        if (dataConclusao == null) throw new IllegalArgumentException("A data de conclusão é obrigatória.");
+        if (dataConclusao.isBefore(dataInicio)) {
+            throw new IllegalArgumentException("A data de conclusão não pode ser anterior ao início.");
+        }
+
+        String descricao = (descricaoAvarias == null || descricaoAvarias.isBlank()) ? null : descricaoAvarias.strip();
+        if (resultado == ResultadoVistoria.REPROVADA && descricao == null) {
+            throw new IllegalArgumentException(
+                    "RD022: a descrição das avarias é obrigatória quando a vistoria é reprovada.");
+        }
+
+        this.resultado = resultado;
+        this.descricaoAvarias = descricao;
+        this.dataConclusao = dataConclusao;
     }
 }

@@ -7,7 +7,5 @@ import java.util.Optional;
 
 public interface VistoriaRepository extends JpaRepository<Vistoria, Long> {
 
-    boolean existsByDevolucaoId(Long devolucaoId);
-
     Optional<Vistoria> findByDevolucaoId(Long devolucaoId);
 }

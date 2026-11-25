@@ -10,7 +10,7 @@ import br.ufs.ziploc.manutencao.api.ManutencaoApi;
 import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import br.ufs.ziploc.shared.persistence.ViolacaoIntegridade;
-import br.ufs.ziploc.vistoria.domain.StatusVistoria;
+import br.ufs.ziploc.vistoria.domain.ResultadoVistoria;
 import br.ufs.ziploc.vistoria.domain.Vistoria;
 import br.ufs.ziploc.vistoria.dto.VistoriaDto;
 import br.ufs.ziploc.vistoria.repository.VistoriaRepository;
@@ -19,7 +19,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Service
@@ -35,20 +34,22 @@ public class VistoriaService {
     private final ManutencaoApi manutencaoApi;
 
     @Transactional
-    public VistoriaDto registrar(Long devolucaoId, StatusVistoria status, BigDecimal custoDano,
-                                 String laudo, Long usuarioTecnicoId) {
+    public VistoriaDto registrar(Long locadoraId, Long devolucaoId, ResultadoVistoria resultado,
+                                 String descricaoAvarias, Long tecnicoId) {
         DevolucaoResumo devolucao = devolucaoApi.buscarPorId(devolucaoId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Devolução " + devolucaoId + " não encontrada."));
         ItemContratoPrazo item = contratoApi.buscarItemContrato(devolucao.itemContratoId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Item de contrato " + devolucao.itemContratoId() + " não encontrado."));
 
-        // As regras de dados (RD022 e custo) ficam na entidade e lançam IllegalArgumentException (422).
-        Vistoria vistoria = new Vistoria(devolucaoId, usuarioTecnicoId, Instant.now(), status, custoDano, laudo);
+        Instant agora = Instant.now();
 
-        if (vistorias.existsByDevolucaoId(devolucaoId)) {
-            throw new ConflitoException("Já existe vistoria para a devolução " + devolucaoId + ".");
-        }
+        // Se já existe uma vistoria iniciada para a devolução, conclui ela; se não, cria e conclui.
+        Vistoria vistoria = vistorias.findByDevolucaoId(devolucaoId)
+                .orElseGet(() -> new Vistoria(locadoraId, devolucaoId, tecnicoId, agora));
+
+        // IllegalState (409) se já concluída; IllegalArgument (422) para RD022.
+        vistoria.concluir(resultado, descricaoAvarias, agora);
 
         UnidadeInfo unidade = unidadeApi.buscarUnidade(item.unidadeId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
@@ -70,15 +71,14 @@ public class VistoriaService {
 
         if (salva.reprovada()) {
             unidadeApi.iniciarManutencao(item.unidadeId());
-            manutencaoApi.abrirAPartirDeVistoria(salva.getId(), item.unidadeId(), usuarioTecnicoId, salva.getLaudo());
+            manutencaoApi.abrirAPartirDeVistoria(locadoraId, item.unidadeId(), tecnicoId, salva.getDescricaoAvarias());
         } else {
             unidadeApi.liberar(item.unidadeId());
         }
 
         /*
-         * TODO (quando o Faturamento tiver a FaturaApi): atualizar os danos da fatura do contrato, com
-         * faturaApi.atualizarDanos(item.contratoId(), vistoriaApi.totalizarDanosDoContrato(item.contratoId()));
-         * O saveAndFlush acima garante que a vistoria recém-salva entra na soma.
+         * Os danos para a fatura NÃO saem daqui: a vistoria não guarda custo. O valor é o custo_gerado da
+         * Manutenção, repassado quando ela conclui (ManutencaoService.concluir -> DevolucaoApi.registrarDanos).
          */
 
         return VistoriaDto.de(salva);

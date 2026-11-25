@@ -27,8 +27,11 @@ public class VistoriaController {
     public ResponseEntity<VistoriaDto> registrar(@PathVariable("devolucaoId") Long devolucaoId,
                                                  @Valid @RequestBody RegistrarVistoriaRequest request,
                                                  Authentication autenticacao) {
-        VistoriaDto criada = vistoriaService.registrar(devolucaoId, request.status(), request.custoDano(),
-                request.laudo(), Long.valueOf(autenticacao.getName()));
+        /* TODO: locadoraId provisório, igual ao DevolucaoController, até a segurança fornecer a locadora do usuário. */
+        Long locadoraId = 1L;
+
+        VistoriaDto criada = vistoriaService.registrar(locadoraId, devolucaoId, request.resultado(),
+                request.descricaoAvarias(), Long.valueOf(autenticacao.getName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(criada);
     }
 }

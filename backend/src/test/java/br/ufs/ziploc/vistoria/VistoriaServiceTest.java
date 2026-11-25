@@ -7,9 +7,8 @@ import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.locacao.api.ContratoApi;
 import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import br.ufs.ziploc.manutencao.api.ManutencaoApi;
-import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
-import br.ufs.ziploc.vistoria.domain.StatusVistoria;
+import br.ufs.ziploc.vistoria.domain.ResultadoVistoria;
 import br.ufs.ziploc.vistoria.domain.Vistoria;
 import br.ufs.ziploc.vistoria.repository.VistoriaRepository;
 import br.ufs.ziploc.vistoria.service.VistoriaService;
@@ -18,7 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -36,10 +34,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class VistoriaServiceTest {
 
+    private static final Long LOCADORA_ID = 1L;
     private static final Long DEVOLUCAO_ID = 1L;
     private static final Long ITEM_ID = 10L;
     private static final Long UNIDADE_ID = 5L;
     private static final Long TECNICO_ID = 7L;
+    private static final Instant INICIO = Instant.parse("2020-01-01T00:00:00Z");
 
     @Mock VistoriaRepository vistorias;
     @Mock DevolucaoApi devolucaoApi;
@@ -57,62 +57,56 @@ class VistoriaServiceTest {
                         new BigDecimal("50.00"), new BigDecimal("10.00"), new BigDecimal("500.00"))));
     }
 
+    private void semVistoriaAnterior() {
+        when(vistorias.findByDevolucaoId(DEVOLUCAO_ID)).thenReturn(Optional.empty());
+    }
+
     private void unidadeNoStatus(String status) {
         when(unidadeApi.buscarUnidade(UNIDADE_ID)).thenReturn(Optional.of(
                 new UnidadeInfo(UNIDADE_ID, 1L, "SN-1", status, true, new BigDecimal("50.00"))));
     }
 
-    private void salvarComId() {
-        when(vistorias.saveAndFlush(any(Vistoria.class))).thenAnswer(i -> {
-            Vistoria v = i.getArgument(0);
-            ReflectionTestUtils.setField(v, "id", 99L);
-            return v;
-        });
+    private void salvarRetornandoArgumento() {
+        when(vistorias.saveAndFlush(any(Vistoria.class))).thenAnswer(i -> i.getArgument(0));
     }
 
     @Test
     void registrar_devolucaoInexistente_lancaRecursoNaoEncontrado() {
         when(devolucaoApi.buscarPorId(DEVOLUCAO_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.registrar(DEVOLUCAO_ID, StatusVistoria.APROVADA, null, null, TECNICO_ID))
+        assertThatThrownBy(() -> service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
     @Test
-    void registrar_reprovadaSemLaudo_RD022_lancaIllegalArgument() {
+    void registrar_reprovadaSemDescricaoDeAvarias_RD022_lancaIllegalArgument() {
         devolucaoEItemExistem();
+        semVistoriaAnterior();
 
-        assertThatThrownBy(() -> service.registrar(DEVOLUCAO_ID, StatusVistoria.REPROVADA_COM_DANOS,
-                new BigDecimal("50"), "  ", TECNICO_ID))
+        assertThatThrownBy(() -> service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.REPROVADA, "  ", TECNICO_ID))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(vistorias, never()).saveAndFlush(any());
     }
 
     @Test
-    void registrar_aprovadaComCustoDeDano_lancaIllegalArgument() {
+    void registrar_vistoriaJaConcluida_lancaIllegalState_eNaoMexeNaUnidade() {
         devolucaoEItemExistem();
+        Vistoria concluida = new Vistoria(LOCADORA_ID, DEVOLUCAO_ID, TECNICO_ID, INICIO);
+        concluida.concluir(ResultadoVistoria.APROVADA, null, INICIO.plusSeconds(60));
+        when(vistorias.findByDevolucaoId(DEVOLUCAO_ID)).thenReturn(Optional.of(concluida));
 
-        assertThatThrownBy(() -> service.registrar(DEVOLUCAO_ID, StatusVistoria.APROVADA,
-                new BigDecimal("10"), null, TECNICO_ID))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void registrar_vistoriaJaExistente_lancaConflito() {
-        devolucaoEItemExistem();
-        when(vistorias.existsByDevolucaoId(DEVOLUCAO_ID)).thenReturn(true);
-
-        assertThatThrownBy(() -> service.registrar(DEVOLUCAO_ID, StatusVistoria.APROVADA, null, null, TECNICO_ID))
-                .isInstanceOf(ConflitoException.class);
+        assertThatThrownBy(() -> service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID))
+                .isInstanceOf(IllegalStateException.class);
         verify(unidadeApi, never()).liberar(any());
     }
 
     @Test
     void registrar_unidadeForaDeVistoria_lancaIllegalState() {
         devolucaoEItemExistem();
+        semVistoriaAnterior();
         unidadeNoStatus("DISPONIVEL");
 
-        assertThatThrownBy(() -> service.registrar(DEVOLUCAO_ID, StatusVistoria.APROVADA, null, null, TECNICO_ID))
+        assertThatThrownBy(() -> service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID))
                 .isInstanceOf(IllegalStateException.class);
         verify(vistorias, never()).saveAndFlush(any());
     }
@@ -120,29 +114,46 @@ class VistoriaServiceTest {
     @Test
     void registrar_aprovada_liberaUnidade_semManutencao() {
         devolucaoEItemExistem();
+        semVistoriaAnterior();
         unidadeNoStatus("EM_VISTORIA");
-        salvarComId();
+        salvarRetornandoArgumento();
 
-        var dto = service.registrar(DEVOLUCAO_ID, StatusVistoria.APROVADA, null, null, TECNICO_ID);
+        var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID);
 
         verify(unidadeApi).liberar(UNIDADE_ID);
         verifyNoInteractions(manutencaoApi);
-        assertThat(dto.custoDano()).isEqualByComparingTo("0");
-        assertThat(dto.usuarioTecnicoId()).isEqualTo(TECNICO_ID);
+        assertThat(dto.resultado()).isEqualTo(ResultadoVistoria.APROVADA);
+        assertThat(dto.tecnicoId()).isEqualTo(TECNICO_ID);
+        assertThat(dto.dataConclusao()).isNotNull();
     }
 
     @Test
     void registrar_reprovada_enviaUnidadeParaManutencao_eAbreManutencao() {
         devolucaoEItemExistem();
+        semVistoriaAnterior();
         unidadeNoStatus("EM_VISTORIA");
-        salvarComId();
+        salvarRetornandoArgumento();
 
-        var dto = service.registrar(DEVOLUCAO_ID, StatusVistoria.REPROVADA_COM_DANOS,
-                new BigDecimal("150.5"), "Tela quebrada", TECNICO_ID);
+        var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.REPROVADA, "Tela quebrada", TECNICO_ID);
 
         verify(unidadeApi).iniciarManutencao(UNIDADE_ID);
         verify(unidadeApi, never()).liberar(any());
-        verify(manutencaoApi).abrirAPartirDeVistoria(99L, UNIDADE_ID, TECNICO_ID, "Tela quebrada");
-        assertThat(dto.custoDano()).isEqualByComparingTo("150.50");
+        verify(manutencaoApi).abrirAPartirDeVistoria(LOCADORA_ID, UNIDADE_ID, TECNICO_ID, "Tela quebrada");
+        assertThat(dto.descricaoAvarias()).isEqualTo("Tela quebrada");
+    }
+
+    @Test
+    void registrar_vistoriaIniciadaEPendente_concluiAExistente() {
+        devolucaoEItemExistem();
+        Vistoria pendente = new Vistoria(LOCADORA_ID, DEVOLUCAO_ID, TECNICO_ID, INICIO);
+        when(vistorias.findByDevolucaoId(DEVOLUCAO_ID)).thenReturn(Optional.of(pendente));
+        unidadeNoStatus("EM_VISTORIA");
+        salvarRetornandoArgumento();
+
+        var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID);
+
+        verify(unidadeApi).liberar(UNIDADE_ID);
+        assertThat(dto.dataInicio()).isEqualTo(INICIO);
+        assertThat(dto.dataConclusao()).isNotNull();
     }
 }
