@@ -70,8 +70,8 @@ public class Fatura {
 
         if(status == StatusFatura.PAGA || status == StatusFatura.CANCELADA){
             throw new IllegalStateException(
-                "Fatura com status" + status + "não pode ser paga novamente.");
-        }
+                "Fatura com status " + status + " não pode ser paga novamente.");
+            }
 
         this.dataPagamento = dataPagamento;
         this.responsavelPagamentoId = usuarioId;
