@@ -20,10 +20,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ManutencaoService {
 
-    /**
-     * Status em que o banco recusa uma nova manutenção (trigger manutencao_registrar e
-     * índice manutencao_aberta_unica). Aqui só validamos para devolver 409 com mensagem clara.
-     */
     private static final Set<String> STATUS_QUE_IMPEDEM_MANUTENCAO =
             Set.of("LOCADA", "EM_VISTORIA", "EM_MANUTENCAO");
 
@@ -40,12 +36,13 @@ public class ManutencaoService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Unidade de equipamento " + unidadeId + " não encontrada."))
                 .status();
+
         if (STATUS_QUE_IMPEDEM_MANUTENCAO.contains(status)) {
             throw new IllegalStateException(
                     "A unidade está " + status + " e não pode entrar em manutenção.");
         }
 
-        // O trigger do banco muda a unidade para EM_MANUTENCAO ao inserir a manutenção.
+        // O trigger do banco muda a unidade para EM_MANUTENCAO.
         Manutencao manutencao = new Manutencao(locadoraId, unidadeId, tecnicoId, tipo, descricao,
                 dataPrevista, Instant.now());
         return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
@@ -56,10 +53,13 @@ public class ManutencaoService {
         Manutencao manutencao = manutencoes.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Manutenção " + id + " não encontrada."));
 
-        // IllegalState (409) se já concluída; IllegalArgument (422) para RD023 e dados inválidos.
+        if (custoGerado == null || custoGerado.signum() < 0) {
+            throw new IllegalArgumentException("O custo gerado deve ser informado e não pode ser negativo.");
+        }
+
         manutencao.concluir(Instant.now(), custoGerado.setScale(2, RoundingMode.HALF_UP), justificativaAtraso);
 
-        // O trigger do banco devolve a unidade a DISPONIVEL ao salvar a conclusão.
+        // O trigger do banco devolve a unidade a DISPONIVEL.
         return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
     }
 

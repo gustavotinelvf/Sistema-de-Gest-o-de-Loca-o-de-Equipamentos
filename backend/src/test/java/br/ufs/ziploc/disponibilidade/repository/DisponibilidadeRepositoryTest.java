@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +33,7 @@ class DisponibilidadeRepositoryTest {
     @BeforeEach
     void preparar() {
         locadora = jdbc.queryForObject("INSERT INTO locadora (razao_social, cnpj, cep_sede, logradouro_sede, numero_sede, bairro_sede, cidade_sede, uf_sede, raio_entrega_km, percentual_multa_atraso) VALUES ('Locadora Teste', '11222333000181', '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE', 100, 10) RETURNING id", Long.class);
-        gerente = jdbc.queryForObject("INSERT INTO usuario (locadora_id, nome, email, senha_hash, perfil, status, data_ativacao) VALUES (?, 'Gerente Teste', 'gerente.disponibilidade@teste.com', ?, 'GERENTE', 'ATIVO', now()) RETURNING id", Long.class, locadora, "$2a$10$" + "A".repeat(53));
+        gerente = jdbc.queryForObject("INSERT INTO usuario (locadora_id, nome, email, cpf, senha_hash, perfil, status, data_ativacao) VALUES (?, 'Gerente Teste', 'gerente.disponibilidade@teste.com', ?, ?, 'GERENTE', 'ATIVO', now()) RETURNING id", Long.class, locadora, cpf(), "$2a$10$" + "A".repeat(53));
         cliente = jdbc.queryForObject("INSERT INTO cliente (locadora_id, razao_social, cnpj, representante_nome, email, telefone, cep, logradouro, numero, bairro, cidade, uf) VALUES (?, 'Construtora Teste', '99888777000166', 'Ana', 'ana@teste.com', '79999999999', '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE') RETURNING id", Long.class, locadora);
         andaime = modelo("Andaime tubular", "Andaime", "50.00");
         betoneira = modelo("Betoneira 400L", "Betoneira", "80.00");
@@ -125,5 +126,11 @@ class DisponibilidadeRepositoryTest {
 
     private static int quantidade(List<DisponibilidadeDTO> lista, long modeloId) {
         return lista.stream().filter(d -> d.modeloId() == modeloId).findFirst().map(DisponibilidadeDTO::quantidadeDisponivel).orElse(0);
+    }
+
+    private static String cpf() {
+        return String.format("%011d",
+                Math.floorMod(UUID.randomUUID().getMostSignificantBits(),
+                        100_000_000_000L));
     }
 }

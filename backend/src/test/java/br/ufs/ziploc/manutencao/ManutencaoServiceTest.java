@@ -80,7 +80,7 @@ class ManutencaoServiceTest {
 
         var dto = service.iniciarAvulsa(LOCADORA_ID, "SN-1", TipoManutencao.PREVENTIVA, "Revisão", null, 7L);
 
-        verify(unidadeApi, never()).iniciarManutencao(any()); // quem muda o status é o trigger do banco
+        verify(unidadeApi, never()).iniciarManutencao(any());
         assertThat(dto.tipo()).isEqualTo(TipoManutencao.PREVENTIVA);
         assertThat(dto.tecnicoId()).isEqualTo(7L);
         assertThat(dto.dataConclusao()).isNull();
@@ -125,7 +125,7 @@ class ManutencaoServiceTest {
 
         var dto = service.concluir(5L, new BigDecimal("150.555"), null);
 
-        verifyNoInteractions(unidadeApi); // quem libera a unidade é o trigger do banco
+        verifyNoInteractions(unidadeApi);
         assertThat(dto.custoGerado()).isEqualByComparingTo("150.56");
         assertThat(dto.dataConclusao()).isNotNull();
     }
@@ -156,5 +156,32 @@ class ManutencaoServiceTest {
                 .thenReturn(List.of(aberta(TipoManutencao.PREVENTIVA, null)));
 
         assertThat(service.historico("SN-1")).hasSize(1);
+    }
+
+    @Test
+    void concluir_custoNulo_lancaIllegalArgument_eNaoSalva() {
+        Manutencao manutencao = aberta(TipoManutencao.CORRETIVA, null);
+        when(manutencoes.findById(5L)).thenReturn(Optional.of(manutencao));
+
+        assertThatThrownBy(() -> service.concluir(5L, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(manutencao.estaConcluida()).isFalse();
+        verify(manutencoes, never()).saveAndFlush(any());
+        verifyNoInteractions(unidadeApi);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-100.00", "-0.001"})
+    void concluir_custoNegativo_lancaIllegalArgument_eNaoSalva(String custo) {
+        Manutencao manutencao = aberta(TipoManutencao.CORRETIVA, null);
+        when(manutencoes.findById(5L)).thenReturn(Optional.of(manutencao));
+
+        assertThatThrownBy(() -> service.concluir(5L, new BigDecimal(custo), null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(manutencao.estaConcluida()).isFalse();
+        verify(manutencoes, never()).saveAndFlush(any());
+        verifyNoInteractions(unidadeApi);
     }
 }
