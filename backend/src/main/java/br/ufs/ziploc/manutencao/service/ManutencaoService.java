@@ -4,7 +4,6 @@ import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.manutencao.domain.Manutencao;
 import br.ufs.ziploc.manutencao.domain.TipoManutencao;
 import br.ufs.ziploc.manutencao.dto.ManutencaoDto;
-import br.ufs.ziploc.manutencao.provisorio.DevolucaoApi;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
@@ -15,15 +14,21 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ManutencaoService {
 
+    /**
+     * Status em que o banco recusa uma nova manutenção (trigger manutencao_registrar e
+     * índice manutencao_aberta_unica). Aqui só validamos para devolver 409 com mensagem clara.
+     */
+    private static final Set<String> STATUS_QUE_IMPEDEM_MANUTENCAO =
+            Set.of("LOCADA", "EM_VISTORIA", "EM_MANUTENCAO");
+
     private final ManutencaoRepository manutencoes;
     private final UnidadeApi unidadeApi;
-    /* TODO: PROVISÓRIO. Trocar por br.ufs.ziploc.devolucao.api.DevolucaoApi quando o colega publicar registrarDanos. */
-    private final DevolucaoApi devolucaoApi;
 
     /** Manutenção avulsa: o técnico informa o número de série. */
     @Transactional
@@ -31,9 +36,16 @@ public class ManutencaoService {
                                        String descricao, Instant dataPrevista, Long tecnicoId) {
         Long unidadeId = buscarUnidadeId(numeroSerie);
 
-        // Lança IllegalStateException (409) se a unidade não puder entrar em manutenção.
-        unidadeApi.iniciarManutencao(unidadeId);
+        String status = unidadeApi.buscarUnidade(unidadeId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                        "Unidade de equipamento " + unidadeId + " não encontrada."))
+                .status();
+        if (STATUS_QUE_IMPEDEM_MANUTENCAO.contains(status)) {
+            throw new IllegalStateException(
+                    "A unidade está " + status + " e não pode entrar em manutenção.");
+        }
 
+        // O trigger do banco muda a unidade para EM_MANUTENCAO ao inserir a manutenção.
         Manutencao manutencao = new Manutencao(locadoraId, unidadeId, tecnicoId, tipo, descricao,
                 dataPrevista, Instant.now());
         return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
@@ -46,13 +58,9 @@ public class ManutencaoService {
 
         // IllegalState (409) se já concluída; IllegalArgument (422) para RD023 e dados inválidos.
         manutencao.concluir(Instant.now(), custoGerado.setScale(2, RoundingMode.HALF_UP), justificativaAtraso);
-        unidadeApi.liberar(manutencao.getUnidadeId());
-        Manutencao salva = manutencoes.saveAndFlush(manutencao);
 
-        if (deveRepassarDanos(salva)) {
-            devolucaoApi.registrarDanos(salva.getUnidadeId(), salva.getCustoGerado());
-        }
-        return ManutencaoDto.de(salva);
+        // O trigger do banco devolve a unidade a DISPONIVEL ao salvar a conclusão.
+        return ManutencaoDto.de(manutencoes.saveAndFlush(manutencao));
     }
 
     @Transactional(readOnly = true)
@@ -61,16 +69,6 @@ public class ManutencaoService {
         return manutencoes.findByUnidadeIdOrderByDataInicioDesc(unidadeId).stream()
                 .map(ManutencaoDto::de)
                 .toList();
-    }
-
-    /*
-     * TODO: PROVISÓRIO. O banco (pgerd) não tem vistoria_id na manutencao, então não dá para saber se ela
-     * veio de uma vistoria. Critério temporário: CORRETIVA com custo maior que zero. Problema: uma manutenção
-     * avulsa CORRETIVA (unidade quebrada no estoque) também repassaria. Combinar com o grupo: coluna
-     * vistoria_id em manutencao, ou outra regra. Só este método precisa mudar.
-     */
-    private boolean deveRepassarDanos(Manutencao manutencao) {
-        return manutencao.getTipo() == TipoManutencao.CORRETIVA && manutencao.getCustoGerado().signum() > 0;
     }
 
     private Long buscarUnidadeId(String numeroSerie) {

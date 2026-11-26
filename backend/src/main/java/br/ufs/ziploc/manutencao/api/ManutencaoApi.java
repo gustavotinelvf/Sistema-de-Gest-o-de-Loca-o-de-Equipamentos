@@ -9,7 +9,7 @@ public interface ManutencaoApi {
     /**
      * Abre uma manutenção CORRETIVA para a unidade, a partir de uma vistoria reprovada.
      * Idempotente: se a unidade já tem manutenção aberta, devolve a existente.
-     * Quem muda o status da unidade para EM_MANUTENCAO é a Vistoria.
+     * Quem muda o status da unidade para EM_MANUTENCAO é o trigger do banco, ao concluir a vistoria.
      */
     ManutencaoResumo abrirAPartirDeVistoria(Long locadoraId, Long unidadeId,
                                             Long tecnicoId, String descricaoAvarias);
