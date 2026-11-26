@@ -24,7 +24,7 @@ public class FaturaController {
     private final LocadoraApi locadoraApi;
 
     @PostMapping("/{id}/pagamento")
-    @PreAuthorize("hasAnyRole('FINANCEIRO', 'GERENTE')")
+    @PreAuthorize("hasRole('FINANCEIRO')")
     public ResponseEntity<FaturaDto> registrar(@PathVariable Long id, Authentication autenticacao) {
 
         Long locadoraId = locadoraApi.obterParametros().id();

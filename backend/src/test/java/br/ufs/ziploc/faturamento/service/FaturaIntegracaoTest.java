@@ -2,6 +2,7 @@ package br.ufs.ziploc.faturamento.service;
 
 import br.ufs.ziploc.faturamento.dto.FaturaDto;
 import br.ufs.ziploc.faturamento.domain.StatusFatura;
+import br.ufs.ziploc.faturamento.exception.FaturaJaExisteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,10 +11,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Transactional
@@ -32,7 +35,6 @@ class FaturaIntegracaoTest {
     private long modelo;
     private long unidade;
     private long contrato;
-    private long fatura;
 
     @BeforeEach
     void preparar() {
@@ -87,14 +89,15 @@ class FaturaIntegracaoTest {
         jdbc.update(
                 "INSERT INTO devolucao (locadora_id, item_contrato_id, usuario_id, data_devolucao_real, multa_atraso) VALUES (?, ?, ?, now(), 0)",
                 locadora, itemContrato, gerente);
-
-        fatura = jdbc.queryForObject(
-                "INSERT INTO fatura (locadora_id, contrato_id, valor_locacao, valor_multa, data_emissao, data_vencimento, responsavel_emissao_id) VALUES (?, ?, 500, 0, CURRENT_DATE, CURRENT_DATE + 7, ?) RETURNING id",
-                Long.class, locadora, contrato, financeiro);
     }
 
     @Test
     void deveRegistrarPagamentoEFinalizarContrato() {
+
+        long fatura = jdbc.queryForObject(
+                "INSERT INTO fatura (locadora_id, contrato_id, valor_locacao, valor_multa, data_emissao, data_vencimento, responsavel_emissao_id) VALUES (?, ?, 500, 0, CURRENT_DATE, CURRENT_DATE + 7, ?) RETURNING id",
+                Long.class, locadora, contrato, financeiro);
+
         FaturaDto resultado = service.registrarPagamento(
                 fatura, locadora, financeiro);
 
@@ -117,6 +120,69 @@ class FaturaIntegracaoTest {
                 "SELECT responsavel_pagamento_id FROM fatura WHERE id = ?",
                 Long.class, fatura))
                 .isEqualTo(financeiro);
+    }
+
+    @Test
+    void deveGerarFaturaConsolidadaNoBanco() {
+
+        FaturaDto resultado = service.gerarFatura(
+                contrato, locadora, financeiro, BigDecimal.ZERO);
+
+        LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+
+        assertThat(resultado.id()).isNotNull();
+
+        assertThat(resultado.contratoId()).isEqualTo(contrato);
+
+        assertThat(resultado.status()).isEqualTo(StatusFatura.PENDENTE);
+
+        assertThat(resultado.valorLocacao())
+                .isEqualByComparingTo(new BigDecimal("500.00"));
+
+        assertThat(resultado.valorMulta())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        assertThat(resultado.valorTotal())
+                .isEqualByComparingTo(new BigDecimal("500.00"));
+
+        assertThat(resultado.dataVencimento())
+                .isEqualTo(hoje.plusDays(7));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT valor_total FROM fatura WHERE id = ?",
+                BigDecimal.class, resultado.id()))
+                .isEqualByComparingTo(new BigDecimal("500.00"));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM fatura WHERE id = ?",
+                String.class, resultado.id()))
+                .isEqualTo("PENDENTE");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT responsavel_emissao_id FROM fatura WHERE id = ?",
+                Long.class, resultado.id()))
+                .isEqualTo(financeiro);
+
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM contrato WHERE id = ?",
+                String.class, contrato))
+                .isEqualTo("ATIVO");
+    }
+
+    @Test
+    void deveImpedirEmissaoDuplicadaNoBanco() {
+
+        service.gerarFatura(
+                contrato, locadora, financeiro, BigDecimal.ZERO);
+
+        assertThatThrownBy(() -> service.gerarFatura(
+                contrato, locadora, financeiro, BigDecimal.ZERO))
+                .isInstanceOf(FaturaJaExisteException.class);
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM fatura WHERE contrato_id = ?",
+                Long.class, contrato))
+                .isEqualTo(1L);
     }
 
     private long criarUsuario(String perfil, String sufixo) {
