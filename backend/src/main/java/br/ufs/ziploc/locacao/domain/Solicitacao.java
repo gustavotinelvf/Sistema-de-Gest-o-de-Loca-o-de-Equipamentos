@@ -20,34 +20,40 @@ public class Solicitacao {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "locadora_id", nullable = false)
+    private Long locadoraId;
     @Column(name = "cliente_id", nullable = false)
     private Long clienteId;
-    @Column(name = "registrado_por_id", nullable = false)
+    @Column(name = "solicitante_id", nullable = false)
     private Long registradoPorId;
-    @Column(name = "analisado_por_id")
+    @Column(name = "aprovador_id")
     private Long analisadoPorId;
-    @Column(name = "data_criacao", nullable = false, updatable = false)
+    @Column(name = "data_solicitacao", nullable = false, updatable = false)
     private Instant dataCriacao;
     @Column(name = "data_analise")
     private Instant dataAnalise;
-    @Column(name = "data_inicio_desejada", nullable = false)
+    @Column(name = "data_inicio_prevista", nullable = false)
     private LocalDate dataInicioDesejada;
-    @Column(name = "data_fim_desejada", nullable = false)
+    @Column(name = "data_fim_prevista", nullable = false)
     private LocalDate dataFimDesejada;
-    @Column(name = "distancia_km", precision = 7, scale = 2)
+    @Column(name = "distancia_entrega_km", precision = 8, scale = 2)
     private BigDecimal distanciaKm;
-    @Column(name = "distancia_verificada", nullable = false)
-    private boolean distanciaVerificada;
+    @Column(name = "valor_estimado", nullable = false, precision = 12, scale = 2)
+    private BigDecimal valorEstimado = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 15)
     private StatusSolicitacao status;
     @Column(name = "justificativa")
     private String justificativa;
     @OneToMany(mappedBy = "solicitacao", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemSolicitacao> itens = new ArrayList<>();
 
-    public Solicitacao(Long clienteId, Long registradoPorId, LocalDate dataInicioDesejada, LocalDate dataFimDesejada) {
-        if (!dataFimDesejada.isAfter(dataInicioDesejada)) throw new IllegalArgumentException("A data de fim deve ser posterior à data de início.");
+    public Solicitacao(Long locadoraId, Long clienteId, Long registradoPorId, LocalDate dataInicioDesejada, LocalDate dataFimDesejada) {
+        if (locadoraId == null || locadoraId <= 0) throw new IllegalArgumentException("A locadora é obrigatória.");
+        if (clienteId == null) throw new IllegalArgumentException("O cliente é obrigatório.");
+        if (registradoPorId == null) throw new IllegalArgumentException("O usuário solicitante é obrigatório.");
+        if (dataInicioDesejada == null || dataFimDesejada == null || !dataFimDesejada.isAfter(dataInicioDesejada)) throw new IllegalArgumentException("A data de fim deve ser posterior à data de início.");
+        this.locadoraId = locadoraId;
         this.clienteId = clienteId;
         this.registradoPorId = registradoPorId;
         this.dataInicioDesejada = dataInicioDesejada;
@@ -64,28 +70,33 @@ public class Solicitacao {
         return Collections.unmodifiableList(itens);
     }
 
-    public void adicionarItem(Long modeloId, int quantidade) {
+    public void adicionarItem(Long modeloId, int quantidade, BigDecimal valorUnitario) {
         exigirPendente();
-        itens.add(new ItemSolicitacao(this, modeloId, quantidade));
+        itens.add(new ItemSolicitacao(this, modeloId, quantidade, valorUnitario));
+        this.valorEstimado = valorEstimado.add(valorUnitario.multiply(BigDecimal.valueOf(quantidade)));
+    }
+
+    public boolean isDistanciaVerificada() {
+        return distanciaKm != null;
     }
 
     public void registrarDistancia(BigDecimal distanciaKm) {
-        if (distanciaKm.signum() < 0) throw new IllegalArgumentException("A distância não pode ser negativa.");
+        exigirPendente();
+        if (distanciaKm == null || distanciaKm.signum() < 0) throw new IllegalArgumentException("A distância não pode ser nula ou negativa.");
         this.distanciaKm = distanciaKm;
-        this.distanciaVerificada = true;
     }
 
     public void aprovar(Long analisadoPorId) {
         exigirPendente();
-        this.status = StatusSolicitacao.APROVADA;
         registrarAnalise(analisadoPorId);
+        this.status = StatusSolicitacao.APROVADA;
     }
 
     public void rejeitar(Long analisadoPorId, String justificativa) {
         exigirPendente();
         this.justificativa = exigirJustificativa(justificativa);
-        this.status = StatusSolicitacao.REJEITADA;
         registrarAnalise(analisadoPorId);
+        this.status = StatusSolicitacao.REJEITADA;
     }
 
     public void cancelar(String justificativa) {
