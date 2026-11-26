@@ -86,7 +86,7 @@ public class ContratoService implements ContratoApi {
     }
 
     /**
-     * Prorrogação de contrato ATIVO. Acréscimo = soma das diárias base das unidades × dias adicionados.
+     * Prorrogação de contrato ATIVO. Acréscimo = soma das diárias contratadas das unidades × dias adicionados.
      * A disponibilidade no período novo é garantida pela constraint do banco (409 se houver sobreposição).
      */
     @Transactional
@@ -106,7 +106,7 @@ public class ContratoService implements ContratoApi {
         long diasAdicionais = ChronoUnit.DAYS.between(contrato.getDataFimPrevista(), novaDataFim);
         BigDecimal diariasPorDia = BigDecimal.ZERO;
         for (ItemContrato item : contrato.getItens()) {
-            diariasPorDia = diariasPorDia.add(buscarUnidade(item.getUnidadeId()).valorDiariaBase());
+            diariasPorDia = diariasPorDia.add(item.getValorDiariaContratada());
         }
         BigDecimal acrescimo = diariasPorDia.multiply(BigDecimal.valueOf(diasAdicionais)).setScale(2, RoundingMode.HALF_UP);
 

@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,7 +41,7 @@ class ContratoServiceTest {
     @Mock EntityManager entityManager;
     @InjectMocks ContratoService service;
 
-   private Contrato contratoPlanejado(Long... unidadeIds) {
+    private Contrato contratoPlanejado(Long... unidadeIds) {
         Solicitacao s = new Solicitacao(1L, 2L, INICIO, FIM);
         s.aprovar(3L);
         Contrato c = new Contrato(s, new BigDecimal("1000.00"), new BigDecimal("10.00"));
@@ -131,18 +132,17 @@ class ContratoServiceTest {
     }
 
     @Test
-    void prorrogacaoSomaDiariasDasUnidadesVezesDiasAdicionais() {
+    void prorrogacaoSomaDiariasContratadasDasUnidadesVezesDiasAdicionais() {
         Contrato c = contratoAtivo(10L, 11L);
         when(contratos.findById(1L)).thenReturn(Optional.of(c));
-        when(unidadeApi.buscarUnidade(10L)).thenReturn(Optional.of(unidade(10L, "LOCADA", "100.00")));
-        when(unidadeApi.buscarUnidade(11L)).thenReturn(Optional.of(unidade(11L, "LOCADA", "50.50")));
 
         service.prorrogar(1L, FIM.plusDays(3));
 
         assertThat(c.getDataFimPrevista()).isEqualTo(FIM.plusDays(3));
-        assertThat(c.getValorTotal()).isEqualByComparingTo("1451.50"); // 1000 + (100 + 50,50) × 3
+        assertThat(c.getValorTotal()).isEqualByComparingTo("1600.00"); // 1000 + (100 + 100) × 3
         verify(contratos).saveAndFlush(c);
         verify(entityManager).refresh(c);
+        verifyNoInteractions(unidadeApi);
     }
 
     @Test
@@ -170,7 +170,6 @@ class ContratoServiceTest {
     void prorrogacaoTraduzOverbookingDoBancoParaConflito() {
         Contrato c = contratoAtivo(10L);
         when(contratos.findById(1L)).thenReturn(Optional.of(c));
-        when(unidadeApi.buscarUnidade(10L)).thenReturn(Optional.of(unidade(10L, "LOCADA", "100.00")));
         when(contratos.saveAndFlush(any(Contrato.class)))
                 .thenThrow(new DataIntegrityViolationException("excl", new SQLException("conflicting key", "23P01")));
 
