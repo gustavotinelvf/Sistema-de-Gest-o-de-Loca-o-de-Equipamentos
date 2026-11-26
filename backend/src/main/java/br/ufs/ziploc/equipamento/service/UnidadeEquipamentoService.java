@@ -40,7 +40,7 @@ public class UnidadeEquipamentoService {
 
     @Transactional
     public UnidadeEquipamentoResponse alterarNumeroSerie(Long id, String novoNumeroSerie) {
-        UnidadeEquipamento unidade = carregar(id);
+        UnidadeEquipamento unidade = carregarParaAtualizacao(id);
         String numeroSerie = novoNumeroSerie.strip();
         if (unidades.existsByNumeroSerieIgnoreCaseAndIdNot(numeroSerie, id)) throw serieDuplicada(numeroSerie);
         unidade.alterarNumeroSerie(numeroSerie);
@@ -50,14 +50,14 @@ public class UnidadeEquipamentoService {
     /** Só unidades DISPONIVEL podem ser inativadas (regra da entidade). */
     @Transactional
     public UnidadeEquipamentoResponse inativar(Long id) {
-        UnidadeEquipamento unidade = carregar(id);
+        UnidadeEquipamento unidade = carregarParaAtualizacao(id);
         unidade.inativar();
         return UnidadeEquipamentoResponse.de(unidade);
     }
 
     @Transactional
     public UnidadeEquipamentoResponse reativar(Long id) {
-        UnidadeEquipamento unidade = carregar(id);
+        UnidadeEquipamento unidade = carregarParaAtualizacao(id);
         if (!unidade.getModelo().isAtivo()) {
             throw new IllegalStateException("Reative o modelo '" + unidade.getModelo().getNome() + "' antes de reativar a unidade.");
         }
@@ -82,7 +82,12 @@ public class UnidadeEquipamentoService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Unidade de equipamento " + id + " não encontrada."));
     }
 
-    /** O flush antecipa a unique constraint do banco, que cobre a corrida entre duas requisições (RD009). */
+    private UnidadeEquipamento carregarParaAtualizacao(Long id) {
+        return unidades.findByIdForUpdate(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Unidade de equipamento " + id + " não encontrada."));
+    }
+
+    /** O flush antecipa a unique constraint do banco, que protege contra números de série idênticos (RD009). */
     private UnidadeEquipamento salvar(UnidadeEquipamento unidade) {
         try {
             return unidades.saveAndFlush(unidade);

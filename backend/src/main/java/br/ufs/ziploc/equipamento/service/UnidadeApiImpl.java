@@ -70,7 +70,7 @@ public class UnidadeApiImpl implements UnidadeApi {
     }
 
     private UnidadeEquipamento carregar(Long unidadeId) {
-        return unidades.findById(unidadeId)
+        return unidades.findByIdForUpdate(unidadeId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Unidade de equipamento " + unidadeId + " não encontrada."));
     }
 }

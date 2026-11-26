@@ -1,5 +1,6 @@
 package br.ufs.ziploc.equipamento.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.equipamento.domain.ModeloEquipamento;
 import br.ufs.ziploc.equipamento.domain.StatusUnidade;
 import br.ufs.ziploc.equipamento.dto.ModeloEquipamentoRequest;
@@ -21,10 +22,12 @@ public class ModeloEquipamentoService {
 
     private final ModeloEquipamentoRepository modelos;
     private final UnidadeEquipamentoRepository unidades;
+    private final LocadoraApi locadoraApi;
 
     @Transactional
     public ModeloEquipamentoResponse criar(ModeloEquipamentoRequest r) {
-        ModeloEquipamento modelo = new ModeloEquipamento(r.nome(), r.categoria(), r.descricao(),
+        Long locadoraId = locadoraApi.obterParametros().id();
+        ModeloEquipamento modelo = new ModeloEquipamento(locadoraId, r.nome(), r.categoria(), r.descricao(),
                 r.valorDiariaBase(), r.quantidadeMinima(), r.quantidadeMaxima());
         return ModeloEquipamentoResponse.de(modelos.save(modelo));
     }
