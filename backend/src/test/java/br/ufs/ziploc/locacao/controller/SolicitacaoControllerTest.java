@@ -113,4 +113,10 @@ class SolicitacaoControllerTest {
     void exigeAutenticacao() throws Exception {
         mvc.perform(post("/api/solicitacoes/7/reprovacao").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"justificativa\":\"Motivo\"}")).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void respondeRegraVioladaCom422() throws Exception {
+        when(solicitacaoService.reprovar(eq(7L), any(), anyString())).thenThrow(new IllegalArgumentException("Regra de negócio violada."));
+        mvc.perform(reprovar(7L, "{\"justificativa\":\"Motivo\"}")).andExpect(status().is(422));
+    }
 }
