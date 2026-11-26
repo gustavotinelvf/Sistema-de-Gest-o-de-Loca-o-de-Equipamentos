@@ -12,8 +12,8 @@ import java.math.BigDecimal;
 public record ModeloEquipamentoRequest(
         @NotBlank @Size(max = 200) String nome,
         @NotBlank @Size(max = 100) String categoria,
-        String descricao,
-        @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 8, fraction = 2) BigDecimal valorDiariaBase,
+        @NotNull String descricao,
+        @NotNull @DecimalMin(value = "0.00", inclusive = false) @Digits(integer = 10, fraction = 2) BigDecimal valorDiariaBase,
         @NotNull @Min(0) Integer quantidadeMinima,
-        @NotNull @Min(1) Integer quantidadeMaxima) {
+        @Min(1) Integer quantidadeMaxima) {
 }

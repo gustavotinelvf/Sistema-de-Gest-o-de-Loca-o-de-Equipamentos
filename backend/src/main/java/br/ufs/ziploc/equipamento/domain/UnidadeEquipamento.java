@@ -6,30 +6,31 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "unidade_equipamento")
+@Table(name = "unidade_equipamento", uniqueConstraints = @UniqueConstraint(columnNames = {"locadora_id", "numero_serie"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UnidadeEquipamento {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "locadora_id", nullable = false)
+    private Long locadoraId;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "modelo_id", nullable = false)
     private ModeloEquipamento modelo;
-    @Column(name = "numero_serie", nullable = false, unique = true, length = 50)
+    @Column(name = "numero_serie", nullable = false, length = 50)
     private String numeroSerie;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private StatusUnidade status;
     @Column(name = "ativo", nullable = false)
     private boolean ativo;
-    @Version
-    @Column(name = "version", nullable = false)
-    private Long version;
 
     public UnidadeEquipamento(ModeloEquipamento modelo, String numeroSerie) {
         if (modelo == null) throw new IllegalArgumentException("O modelo é obrigatório.");
+        if (modelo.getLocadoraId() == null) throw new IllegalArgumentException("A locadora do modelo é obrigatória.");
         this.modelo = modelo;
+        this.locadoraId = modelo.getLocadoraId();
         alterarNumeroSerie(numeroSerie);
         this.status = StatusUnidade.DISPONIVEL;
         this.ativo = true;
