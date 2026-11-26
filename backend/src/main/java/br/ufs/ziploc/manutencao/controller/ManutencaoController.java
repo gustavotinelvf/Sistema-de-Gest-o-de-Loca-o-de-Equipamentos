@@ -1,5 +1,6 @@
 package br.ufs.ziploc.manutencao.controller;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.manutencao.dto.ConcluirManutencaoRequest;
 import br.ufs.ziploc.manutencao.dto.IniciarManutencaoRequest;
 import br.ufs.ziploc.manutencao.dto.ManutencaoDto;
@@ -26,13 +27,13 @@ import java.util.List;
 public class ManutencaoController {
 
     private final ManutencaoService manutencaoService;
+    private final LocadoraApi locadoraApi;
 
     @PostMapping
     @PreAuthorize("hasRole('TECNICO')")
     public ResponseEntity<ManutencaoDto> iniciar(@Valid @RequestBody IniciarManutencaoRequest request,
                                                  Authentication autenticacao) {
-        /* TODO: locadoraId provisório, igual ao DevolucaoController, até a segurança fornecer a locadora do usuário. */
-        Long locadoraId = 1L;
+        Long locadoraId = locadoraApi.obterParametros().id();
 
         ManutencaoDto criada = manutencaoService.iniciarAvulsa(locadoraId, request.numeroSerie(), request.tipo(),
                 request.descricao(), request.dataPrevista(), Long.valueOf(autenticacao.getName()));
