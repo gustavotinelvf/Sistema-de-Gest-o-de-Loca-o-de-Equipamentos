@@ -1,14 +1,16 @@
 package br.ufs.ziploc.manutencao;
 
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
+import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.manutencao.domain.Manutencao;
 import br.ufs.ziploc.manutencao.domain.TipoManutencao;
-import br.ufs.ziploc.manutencao.provisorio.DevolucaoApi;
 import br.ufs.ziploc.manutencao.repository.ManutencaoRepository;
 import br.ufs.ziploc.manutencao.service.ManutencaoService;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +23,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,11 +37,14 @@ class ManutencaoServiceTest {
 
     @Mock ManutencaoRepository manutencoes;
     @Mock UnidadeApi unidadeApi;
-    @Mock DevolucaoApi devolucaoApi;
     @InjectMocks ManutencaoService service;
 
     private static Manutencao aberta(TipoManutencao tipo, Instant dataPrevista) {
         return new Manutencao(LOCADORA_ID, 10L, 7L, tipo, "defeito", dataPrevista, INICIO);
+    }
+
+    private static UnidadeInfo unidadeComStatus(String status) {
+        return new UnidadeInfo(10L, 1L, "SN-1", status, true, new BigDecimal("100.00"));
     }
 
     private void salvarRetornandoArgumento() {
@@ -58,26 +62,40 @@ class ManutencaoServiceTest {
     }
 
     @Test
-    void iniciarAvulsa_ok_colocaUnidadeEmManutencao_eSalvaEmAberto() {
+    void iniciarAvulsa_unidadeNaoEncontrada_lancaRecursoNaoEncontrado() {
         when(unidadeApi.buscarUnidadeIdPorNumeroSerie("SN-1")).thenReturn(Optional.of(10L));
+        when(unidadeApi.buscarUnidade(10L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.iniciarAvulsa(LOCADORA_ID, "SN-1", TipoManutencao.PREVENTIVA,
+                "revisão", null, 7L))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(manutencoes, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void iniciarAvulsa_unidadeDisponivel_salvaEmAberto_eNaoMudaStatusPelaApi() {
+        when(unidadeApi.buscarUnidadeIdPorNumeroSerie("SN-1")).thenReturn(Optional.of(10L));
+        when(unidadeApi.buscarUnidade(10L)).thenReturn(Optional.of(unidadeComStatus("DISPONIVEL")));
         salvarRetornandoArgumento();
 
         var dto = service.iniciarAvulsa(LOCADORA_ID, "SN-1", TipoManutencao.PREVENTIVA, "Revisão", null, 7L);
 
-        verify(unidadeApi).iniciarManutencao(10L);
+        verify(unidadeApi, never()).iniciarManutencao(any()); // quem muda o status é o trigger do banco
         assertThat(dto.tipo()).isEqualTo(TipoManutencao.PREVENTIVA);
         assertThat(dto.tecnicoId()).isEqualTo(7L);
         assertThat(dto.dataConclusao()).isNull();
     }
 
-    @Test
-    void iniciarAvulsa_transicaoInvalidaDaUnidade_naoSalva() {
+    @ParameterizedTest
+    @ValueSource(strings = {"LOCADA", "EM_VISTORIA", "EM_MANUTENCAO"})
+    void iniciarAvulsa_unidadeNaoElegivel_lancaIllegalState_eNaoSalva(String status) {
         when(unidadeApi.buscarUnidadeIdPorNumeroSerie("SN-1")).thenReturn(Optional.of(10L));
-        doThrow(new IllegalStateException("Transição de status inválida")).when(unidadeApi).iniciarManutencao(10L);
+        when(unidadeApi.buscarUnidade(10L)).thenReturn(Optional.of(unidadeComStatus(status)));
 
         assertThatThrownBy(() -> service.iniciarAvulsa(LOCADORA_ID, "SN-1", TipoManutencao.CORRETIVA,
                 "defeito", null, 7L))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(status);
         verify(manutencoes, never()).saveAndFlush(any());
     }
 
@@ -90,50 +108,26 @@ class ManutencaoServiceTest {
     }
 
     @Test
-    void concluir_jaConcluida_lancaIllegalState_eNaoLiberaNemRepassa() {
+    void concluir_jaConcluida_lancaIllegalState_eNaoSalva() {
         Manutencao concluida = aberta(TipoManutencao.CORRETIVA, null);
         concluida.concluir(Instant.parse("2020-01-03T00:00:00Z"), BigDecimal.ONE, null);
         when(manutencoes.findById(5L)).thenReturn(Optional.of(concluida));
 
         assertThatThrownBy(() -> service.concluir(5L, BigDecimal.TEN, null))
                 .isInstanceOf(IllegalStateException.class);
-        verify(unidadeApi, never()).liberar(any());
-        verifyNoInteractions(devolucaoApi);
+        verify(manutencoes, never()).saveAndFlush(any());
     }
 
     @Test
-    void concluir_preventiva_liberaUnidade_arredondaCusto_eNaoRepassaDanos() {
-        when(manutencoes.findById(5L)).thenReturn(Optional.of(aberta(TipoManutencao.PREVENTIVA, null)));
+    void concluir_arredondaCusto_eNaoMudaStatusPelaApi() {
+        when(manutencoes.findById(5L)).thenReturn(Optional.of(aberta(TipoManutencao.CORRETIVA, null)));
         salvarRetornandoArgumento();
 
         var dto = service.concluir(5L, new BigDecimal("150.555"), null);
 
-        verify(unidadeApi).liberar(10L);
-        verifyNoInteractions(devolucaoApi);
+        verifyNoInteractions(unidadeApi); // quem libera a unidade é o trigger do banco
         assertThat(dto.custoGerado()).isEqualByComparingTo("150.56");
         assertThat(dto.dataConclusao()).isNotNull();
-    }
-
-    @Test
-    void concluir_corretivaComCusto_liberaUnidade_eRepassaDanosParaDevolucao() {
-        when(manutencoes.findById(5L)).thenReturn(Optional.of(aberta(TipoManutencao.CORRETIVA, null)));
-        salvarRetornandoArgumento();
-
-        service.concluir(5L, new BigDecimal("150.555"), null);
-
-        verify(unidadeApi).liberar(10L);
-        verify(devolucaoApi).registrarDanos(10L, new BigDecimal("150.56"));
-    }
-
-    @Test
-    void concluir_corretivaSemCusto_liberaUnidade_masNaoRepassa() {
-        when(manutencoes.findById(5L)).thenReturn(Optional.of(aberta(TipoManutencao.CORRETIVA, null)));
-        salvarRetornandoArgumento();
-
-        service.concluir(5L, BigDecimal.ZERO, null);
-
-        verify(unidadeApi).liberar(10L);
-        verifyNoInteractions(devolucaoApi);
     }
 
     @Test
@@ -142,7 +136,7 @@ class ManutencaoServiceTest {
 
         assertThatThrownBy(() -> service.concluir(5L, BigDecimal.TEN, "  "))
                 .isInstanceOf(IllegalArgumentException.class);
-        verify(unidadeApi, never()).liberar(any());
+        verify(manutencoes, never()).saveAndFlush(any());
     }
 
     @Test
@@ -152,7 +146,6 @@ class ManutencaoServiceTest {
 
         var dto = service.concluir(5L, BigDecimal.TEN, "Peça importada atrasou");
 
-        verify(unidadeApi).liberar(10L);
         assertThat(dto.justificativaAtraso()).isEqualTo("Peça importada atrasou");
     }
 
