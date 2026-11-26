@@ -6,12 +6,10 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
- * Endereço da sede da locadora. Não é tabela própria: as colunas ficam
- * dentro da tabela "locadora" (@Embeddable).
+ * Endereço da sede da locadora. Não é tabela própria: as colunas ficam dentro
+ * da tabela "locadora" (@Embeddable), com o sufixo "_sede" do schema do Michael.
  */
 @Embeddable
 @Getter
@@ -19,27 +17,24 @@ import org.hibernate.type.SqlTypes;
 @AllArgsConstructor
 public class EnderecoLocadora {
 
-    @Column(name = "cep", nullable = false, length = 8)
+    @Column(name = "cep_sede", nullable = false, length = 8)
     private String cep;
 
-    @Column(name = "logradouro", nullable = false, length = 200)
+    @Column(name = "logradouro_sede", nullable = false, length = 200)
     private String logradouro;
 
-    @Column(name = "numero", nullable = false, length = 20)
+    @Column(name = "numero_sede", nullable = false, length = 20)
     private String numero;
 
-    @Column(name = "complemento", length = 100)
+    @Column(name = "complemento_sede", length = 100)
     private String complemento;
 
-    @Column(name = "bairro", nullable = false, length = 100)
+    @Column(name = "bairro_sede", nullable = false, length = 100)
     private String bairro;
 
-    @Column(name = "cidade", nullable = false, length = 100)
+    @Column(name = "cidade_sede", nullable = false, length = 100)
     private String cidade;
 
-    // A coluna é CHAR(2): sem o JdbcTypeCode, o ddl-auto=validate reclama
-    // que esperava VARCHAR.
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(name = "uf", nullable = false, length = 2)
+    @Column(name = "uf_sede", nullable = false, length = 2)
     private String uf;
 }

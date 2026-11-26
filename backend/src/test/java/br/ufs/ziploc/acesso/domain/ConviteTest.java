@@ -2,6 +2,7 @@ package br.ufs.ziploc.acesso.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,9 +12,12 @@ import org.junit.jupiter.api.Test;
 
 class ConviteTest {
 
+    private static Usuario destinatario() {
+        return Usuario.criarPendente(1L, "Novo", "novo@x.com", Perfil.ATENDENTE, null);
+    }
+
     private Convite novoConvite() {
-        Usuario gerente = Usuario.criarAtivo("Ana", "ana@x.com", "hash", Perfil.GERENTE, "12345678901");
-        return Convite.criar("novo@x.com", Perfil.ATENDENTE, gerente, "token-1",
+        return Convite.criar(destinatario(), Convite.hashDoToken("token-1"),
                 Instant.now().plus(Duration.ofDays(2)));
     }
 
@@ -23,18 +27,36 @@ class ConviteTest {
     }
 
     @Test
-    void criar_expiracaoNoPassado_rejeita_RD017() {
-        Usuario g = Usuario.criarAtivo("Ana", "ana@x.com", "hash", Perfil.GERENTE, "12345678901");
-        assertThrows(IllegalArgumentException.class, () -> Convite.criar("n@x.com", Perfil.ATENDENTE, g,
-                "t", Instant.now().minusSeconds(60)));
+    void criar_usuarioQueNaoEstaPendente_rejeita() {
+        Usuario ativo = Usuario.criarAtivo(1L, "Ana", "ana@x.com", "hash", Perfil.ATENDENTE, null);
+        assertThrows(IllegalArgumentException.class, () -> Convite.criar(ativo,
+                Convite.hashDoToken("t"), Instant.now().plus(Duration.ofDays(1))));
     }
 
-    // NOVO: campos obrigatórios nulos falham logo na criação.
+    @Test
+    void criar_hashForaDoFormato_rejeita() {
+        assertThrows(IllegalArgumentException.class, () -> Convite.criar(destinatario(), "curto",
+                Instant.now().plus(Duration.ofDays(1))));
+    }
+
+    @Test
+    void criar_expiracaoNoPassado_rejeita_RD017() {
+        assertThrows(IllegalArgumentException.class, () -> Convite.criar(destinatario(),
+                Convite.hashDoToken("t"), Instant.now().minusSeconds(60)));
+    }
+
     @Test
     void criar_expiracaoNula_rejeita() {
-        Usuario g = Usuario.criarAtivo("Ana", "ana@x.com", "hash", Perfil.GERENTE, "12345678901");
-        assertThrows(NullPointerException.class, () -> Convite.criar("n@x.com", Perfil.ATENDENTE, g,
-                "t", null));
+        assertThrows(NullPointerException.class, () -> Convite.criar(destinatario(),
+                Convite.hashDoToken("t"), null));
+    }
+
+    @Test
+    void hashDoToken_tem64HexadecimaisEDependeDoToken() {
+        String h1 = Convite.hashDoToken("abc");
+        assertTrue(h1.matches("[0-9a-f]{64}"));
+        assertEquals(h1, Convite.hashDoToken("abc"));
+        assertNotEquals(h1, Convite.hashDoToken("abd"));
     }
 
     @Test
@@ -44,7 +66,6 @@ class ConviteTest {
         assertEquals(StatusConvite.ACEITO, c.getStatus());
     }
 
-    // NOVO: registra a data do aceite (apagar se a coluna data_aceite não existir).
     @Test
     void aceitar_registraDataDeAceite() {
         Convite c = novoConvite();
@@ -60,7 +81,6 @@ class ConviteTest {
         assertThrows(IllegalStateException.class, () -> c.aceitar(Instant.now()));
     }
 
-    // NOVO: convite PENDENTE já vencido não pode ser aceito (RD017).
     @Test
     void aceitar_conviteVencido_rejeita_RD017() {
         Convite c = novoConvite();
@@ -84,7 +104,6 @@ class ConviteTest {
         assertTrue(c.isVencido(Instant.now().plus(Duration.ofDays(3))));
     }
 
-    // NOVO: no instante exato da expiração o convite já está vencido.
     @Test
     void isVencido_noInstanteExatoDaExpiracao() {
         Convite c = novoConvite();
