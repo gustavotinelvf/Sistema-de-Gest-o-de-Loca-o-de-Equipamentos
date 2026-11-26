@@ -42,11 +42,12 @@ public class SolicitacaoService {
     private final UnidadeApi unidadeApi;
 
     @Transactional
-    public SolicitacaoResponse registrar(RegistrarSolicitacaoRequest r) {
+    public SolicitacaoResponse registrar(RegistrarSolicitacaoRequest r, Long registradoPorId) {
         if (r.dataInicioDesejada().isBefore(LocalDate.now(FUSO_LOCAL))) {
             throw new IllegalArgumentException("A data de início desejada não pode estar no passado.");
         }
-        Solicitacao solicitacao = new Solicitacao(r.clienteId(), r.registradoPorId(), r.dataInicioDesejada(), r.dataFimDesejada());
+
+        Solicitacao solicitacao = new Solicitacao(r.clienteId(), registradoPorId, r.dataInicioDesejada(), r.dataFimDesejada());
 
         Set<Long> modelosVistos = new HashSet<>();
         for (RegistrarSolicitacaoRequest.Item item : r.itens()) {
@@ -80,13 +81,18 @@ public class SolicitacaoService {
     public ContratoDTO aprovar(Long id, Long gerenteId, BigDecimal percentualMulta) {
         Solicitacao solicitacao = solicitacaoRepository.findComTravaById(id)
                 .orElseThrow(() -> new SolicitacaoNaoEncontradaException(id));
+
         solicitacao.aprovar(gerenteId);
+
         List<ItemPedidoDTO> pedido = solicitacao.getItens().stream()
                 .map(i -> new ItemPedidoDTO(i.getModeloId(), i.getQuantidade()))
                 .toList();
+
         List<UnidadeDTO> unidades = disponibilidadeApi.alocarUnidades(pedido, solicitacao.getDataInicioDesejada(), solicitacao.getDataFimDesejada());
+
         Contrato contrato = new Contrato(solicitacao, calcularValorTotal(solicitacao, unidades), percentualMulta);
         unidades.forEach(u -> contrato.adicionarItem(u.unidadeId(), u.valorDiaria()));
+
         return paraDTO(contratoRepository.saveAndFlush(contrato));
     }
 
@@ -94,6 +100,7 @@ public class SolicitacaoService {
     public SolicitacaoDTO reprovar(Long id, Long gerenteId, String justificativa) {
         Solicitacao solicitacao = solicitacaoRepository.findComTravaById(id)
                 .orElseThrow(() -> new SolicitacaoNaoEncontradaException(id));
+
         solicitacao.rejeitar(gerenteId, justificativa);
         return paraDTO(solicitacao);
     }

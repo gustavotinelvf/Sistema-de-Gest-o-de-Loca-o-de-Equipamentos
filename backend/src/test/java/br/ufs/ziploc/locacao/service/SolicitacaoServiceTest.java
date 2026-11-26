@@ -39,7 +39,7 @@ class SolicitacaoServiceTest {
     }
 
     private RegistrarSolicitacaoRequest request(LocalDate inicio, RegistrarSolicitacaoRequest.Item... itens) {
-        return new RegistrarSolicitacaoRequest(10L, 20L, inicio, inicio.plusDays(5), List.of(itens));
+        return new RegistrarSolicitacaoRequest(10L, inicio, inicio.plusDays(5), List.of(itens));
     }
 
     @Test
@@ -47,7 +47,7 @@ class SolicitacaoServiceTest {
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(true)));
         when(solicitacoes.saveAndFlush(any(Solicitacao.class))).thenAnswer(i -> i.getArgument(0));
 
-        SolicitacaoResponse r = service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 3)));
+        SolicitacaoResponse r = service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 3)), 20L);
 
         assertThat(r.status()).isEqualTo(StatusSolicitacao.PENDENTE);
         assertThat(r.itens()).hasSize(1);
@@ -59,7 +59,7 @@ class SolicitacaoServiceTest {
     void rejeitaModeloInativo() {
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(false)));
 
-        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1))))
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -67,7 +67,7 @@ class SolicitacaoServiceTest {
     void rejeitaModeloInexistente() {
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1))))
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
@@ -76,13 +76,13 @@ class SolicitacaoServiceTest {
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(true)));
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1),
-                new RegistrarSolicitacaoRequest.Item(1L, 1), new RegistrarSolicitacaoRequest.Item(1L, 2))))
+                new RegistrarSolicitacaoRequest.Item(1L, 1), new RegistrarSolicitacaoRequest.Item(1L, 2)), 20L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void rejeitaDataDeInicioNoPassado() {
-        assertThatThrownBy(() -> service.registrar(request(HOJE.minusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1))))
+        assertThatThrownBy(() -> service.registrar(request(HOJE.minusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

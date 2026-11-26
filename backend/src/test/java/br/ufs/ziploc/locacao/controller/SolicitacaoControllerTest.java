@@ -3,6 +3,7 @@ package br.ufs.ziploc.locacao.controller;
 import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
+import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
 import br.ufs.ziploc.locacao.service.SolicitacaoNaoEncontradaException;
 import br.ufs.ziploc.locacao.service.SolicitacaoService;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -44,6 +47,15 @@ class SolicitacaoControllerTest {
 
     private MockHttpServletRequestBuilder aprovar(String corpo) {
         return post("/api/solicitacoes/7/aprovacao").with(csrf()).with(user("5").roles("GERENTE")).contentType(MediaType.APPLICATION_JSON).content(corpo);
+    }
+
+    @Test
+    void registraComUsuarioAutenticado() throws Exception {
+        SolicitacaoResponse dto = mock(SolicitacaoResponse.class);
+        when(dto.id()).thenReturn(7L);
+        when(solicitacaoService.registrar(any(), eq(5L))).thenReturn(dto);
+        mvc.perform(post("/api/solicitacoes").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"clienteId\":1,\"dataInicioDesejada\":\"2027-12-01\",\"dataFimDesejada\":\"2027-12-10\",\"itens\":[{\"modeloId\":1,\"quantidade\":2}]}")).andExpect(status().isCreated());
+        verify(solicitacaoService).registrar(any(), eq(5L));
     }
 
     @Test

@@ -26,8 +26,8 @@ public class SolicitacaoController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ATENDENTE', 'GERENTE')")
-    public ResponseEntity<SolicitacaoResponse> registrar(@Valid @RequestBody RegistrarSolicitacaoRequest request) {
-        SolicitacaoResponse criada = solicitacaoService.registrar(request);
+    public ResponseEntity<SolicitacaoResponse> registrar(@Valid @RequestBody RegistrarSolicitacaoRequest request, Authentication autenticacao) {
+        SolicitacaoResponse criada = solicitacaoService.registrar(request, Long.valueOf(autenticacao.getName()));
         return ResponseEntity.created(ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").build(criada.id())).body(criada);
     }
 
