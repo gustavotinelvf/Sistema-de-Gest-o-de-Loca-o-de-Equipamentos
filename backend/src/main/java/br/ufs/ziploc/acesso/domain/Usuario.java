@@ -64,6 +64,9 @@ public class Usuario {
     @Column(name = "data_ativacao")
     private Instant dataAtivacao;
 
+    @Column(name = "anonimizado_em")
+    private Instant anonimizadoEm;
+
     /** Cria um usuário já ATIVO (carga inicial). */
     public static Usuario criarAtivo(Long locadoraId, String nome, String email, String senhaHash,
                                      Perfil perfil, String cpf) {
@@ -110,11 +113,15 @@ public class Usuario {
         this.dataAtivacao = agora;
     }
 
-    /** Reativa um usuário que já teve senha. Quem nunca aceitou o convite não pode ser reativado. */
+    /** Reativa um usuário que já teve senha, desde que não esteja anonimizado. */
     public void ativar() {
+        if (isAnonimizado()) {
+            throw new IllegalStateException("Um usuário anonimizado não pode ser reativado");
+        }
         if (senhaHash == null) {
             throw new IllegalStateException("O usuário ainda não concluiu o cadastro (sem senha)");
         }
+        exigirCpfSeGerente(perfil, cpf);
         this.status = StatusUsuario.ATIVO;
         if (this.dataAtivacao == null) {
             this.dataAtivacao = Instant.now();
@@ -131,6 +138,10 @@ public class Usuario {
 
     public boolean isPendente() {
         return status == StatusUsuario.PENDENTE;
+    }
+
+    public boolean isAnonimizado() {
+        return anonimizadoEm != null;
     }
 
     private static void exigirCpfSeGerente(Perfil perfil, String cpf) {
