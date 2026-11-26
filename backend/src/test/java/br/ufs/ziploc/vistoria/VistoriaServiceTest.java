@@ -89,7 +89,7 @@ class VistoriaServiceTest {
     }
 
     @Test
-    void registrar_vistoriaJaConcluida_lancaIllegalState_eNaoMexeNaUnidade() {
+    void registrar_vistoriaJaConcluida_lancaIllegalState_eNaoSalva() {
         devolucaoEItemExistem();
         Vistoria concluida = new Vistoria(LOCADORA_ID, DEVOLUCAO_ID, TECNICO_ID, INICIO);
         concluida.concluir(ResultadoVistoria.APROVADA, null, INICIO.plusSeconds(60));
@@ -97,7 +97,8 @@ class VistoriaServiceTest {
 
         assertThatThrownBy(() -> service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID))
                 .isInstanceOf(IllegalStateException.class);
-        verify(unidadeApi, never()).liberar(any());
+        verify(vistorias, never()).saveAndFlush(any());
+        verifyNoInteractions(manutencaoApi);
     }
 
     @Test
@@ -112,7 +113,7 @@ class VistoriaServiceTest {
     }
 
     @Test
-    void registrar_aprovada_liberaUnidade_semManutencao() {
+    void registrar_aprovada_salvaVistoria_semManutencao_eNaoMudaStatusPelaApi() {
         devolucaoEItemExistem();
         semVistoriaAnterior();
         unidadeNoStatus("EM_VISTORIA");
@@ -120,7 +121,8 @@ class VistoriaServiceTest {
 
         var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID);
 
-        verify(unidadeApi).liberar(UNIDADE_ID);
+        verify(unidadeApi, never()).liberar(any()); // quem libera a unidade é o trigger do banco
+        verify(unidadeApi, never()).iniciarManutencao(any());
         verifyNoInteractions(manutencaoApi);
         assertThat(dto.resultado()).isEqualTo(ResultadoVistoria.APROVADA);
         assertThat(dto.tecnicoId()).isEqualTo(TECNICO_ID);
@@ -128,7 +130,7 @@ class VistoriaServiceTest {
     }
 
     @Test
-    void registrar_reprovada_enviaUnidadeParaManutencao_eAbreManutencao() {
+    void registrar_reprovada_abreManutencao_eNaoMudaStatusPelaApi() {
         devolucaoEItemExistem();
         semVistoriaAnterior();
         unidadeNoStatus("EM_VISTORIA");
@@ -136,7 +138,7 @@ class VistoriaServiceTest {
 
         var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.REPROVADA, "Tela quebrada", TECNICO_ID);
 
-        verify(unidadeApi).iniciarManutencao(UNIDADE_ID);
+        verify(unidadeApi, never()).iniciarManutencao(any()); // o trigger do banco põe a unidade em EM_MANUTENCAO
         verify(unidadeApi, never()).liberar(any());
         verify(manutencaoApi).abrirAPartirDeVistoria(LOCADORA_ID, UNIDADE_ID, TECNICO_ID, "Tela quebrada");
         assertThat(dto.descricaoAvarias()).isEqualTo("Tela quebrada");
@@ -152,7 +154,6 @@ class VistoriaServiceTest {
 
         var dto = service.registrar(LOCADORA_ID, DEVOLUCAO_ID, ResultadoVistoria.APROVADA, null, TECNICO_ID);
 
-        verify(unidadeApi).liberar(UNIDADE_ID);
         assertThat(dto.dataInicio()).isEqualTo(INICIO);
         assertThat(dto.dataConclusao()).isNotNull();
     }

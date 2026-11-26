@@ -51,6 +51,7 @@ public class VistoriaService {
         // IllegalState (409) se já concluída; IllegalArgument (422) para RD022.
         vistoria.concluir(resultado, descricaoAvarias, agora);
 
+        // O trigger devolucao_registrar já colocou a unidade em EM_VISTORIA; aqui só validamos (409 claro).
         UnidadeInfo unidade = unidadeApi.buscarUnidade(item.unidadeId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Unidade de equipamento " + item.unidadeId() + " não encontrada."));
@@ -59,6 +60,7 @@ public class VistoriaService {
                     + " não está em vistoria (status atual: " + unidade.status() + ").");
         }
 
+        // O trigger vistoria_registrar muda a unidade ao salvar: APROVADA -> DISPONIVEL, REPROVADA -> EM_MANUTENCAO.
         Vistoria salva;
         try {
             salva = vistorias.saveAndFlush(vistoria);
@@ -69,17 +71,10 @@ public class VistoriaService {
             throw e;
         }
 
+        // O trigger não cria a manutenção; a linha corretiva é aberta aqui, depois da vistoria salva.
         if (salva.reprovada()) {
-            unidadeApi.iniciarManutencao(item.unidadeId());
             manutencaoApi.abrirAPartirDeVistoria(locadoraId, item.unidadeId(), tecnicoId, salva.getDescricaoAvarias());
-        } else {
-            unidadeApi.liberar(item.unidadeId());
         }
-
-        /*
-         * Os danos para a fatura NÃO saem daqui: a vistoria não guarda custo. O valor é o custo_gerado da
-         * Manutenção, repassado quando ela conclui (ManutencaoService.concluir -> DevolucaoApi.registrarDanos).
-         */
 
         return VistoriaDto.de(salva);
     }
