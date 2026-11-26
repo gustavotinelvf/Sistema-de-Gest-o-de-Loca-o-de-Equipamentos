@@ -6,11 +6,14 @@ import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
 import br.ufs.ziploc.locacao.service.SolicitacaoNaoEncontradaException;
 import br.ufs.ziploc.locacao.service.SolicitacaoService;
+import br.ufs.ziploc.shared.seguranca.JwtService;
+import br.ufs.ziploc.shared.seguranca.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -35,11 +38,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SolicitacaoController.class)
+@Import(SecurityConfig.class)
 class SolicitacaoControllerTest {
     @Autowired
     private MockMvc mvc;
     @MockitoBean
     private SolicitacaoService solicitacaoService;
+    @MockitoBean
+    private JwtService jwtService;
 
     private MockHttpServletRequestBuilder reprovar(Long id, String corpo) {
         return post("/api/solicitacoes/{id}/reprovacao", id).with(csrf()).with(user("5").roles("GERENTE")).contentType(MediaType.APPLICATION_JSON).content(corpo);
@@ -118,5 +124,23 @@ class SolicitacaoControllerTest {
     void respondeRegraVioladaCom422() throws Exception {
         when(solicitacaoService.reprovar(eq(7L), any(), anyString())).thenThrow(new IllegalArgumentException("Regra de negócio violada."));
         mvc.perform(reprovar(7L, "{\"justificativa\":\"Motivo\"}")).andExpect(status().is(422));
+    }
+
+    @Test
+    void impedeAtendenteDeAprovarSolicitacao() throws Exception {
+        mvc.perform(post("/api/solicitacoes/7/aprovacao").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"percentualMulta\":10}")).andExpect(status().isForbidden());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @Test
+    void impedeAtendenteDeReprovarSolicitacao() throws Exception {
+        mvc.perform(post("/api/solicitacoes/7/reprovacao").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"justificativa\":\"Motivo\"}")).andExpect(status().isForbidden());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @Test
+    void impedeFinanceiroDeRegistrarSolicitacao() throws Exception {
+        mvc.perform(post("/api/solicitacoes").with(csrf()).with(user("5").roles("FINANCEIRO")).contentType(MediaType.APPLICATION_JSON).content("{\"clienteId\":1,\"dataInicioDesejada\":\"2027-12-01\",\"dataFimDesejada\":\"2027-12-10\",\"itens\":[{\"modeloId\":1,\"quantidade\":2}]}")).andExpect(status().isForbidden());
+        verifyNoInteractions(solicitacaoService);
     }
 }
