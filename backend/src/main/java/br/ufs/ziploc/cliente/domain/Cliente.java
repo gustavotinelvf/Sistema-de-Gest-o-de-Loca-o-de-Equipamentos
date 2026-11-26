@@ -12,13 +12,12 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
-// Cliente pessoa jurídica (locatário) atendido pela locadora
+//Cliente pessoa jurídica (locatário) vinculado a uma locadora.
 
 @Entity
 @Table(name = "cliente")
@@ -29,6 +28,10 @@ public class Cliente {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Regra D4: referência a outro módulo (acesso) é guardada apenas pelo id
+    @Column(name = "locadora_id", nullable = false)
+    private Long locadoraId;
 
     @Column(name = "razao_social", nullable = false, length = 200)
     private String razaoSocial;
@@ -52,13 +55,14 @@ public class Cliente {
     @Column(name = "data_cadastro", nullable = false, updatable = false)
     private Instant dataCadastro;
 
-    @Column(name = "anonimizado_em")
-    private Instant anonimizadoEm;
+    @Column(name = "data_anonimizacao")
+    private Instant dataAnonimizacao;
 
-    public Cliente(String razaoSocial, String cnpj, Contato contato, Endereco endereco) {
-        this.razaoSocial = Objects.requireNonNull(razaoSocial, "Razão social é obrigatória");
+    public Cliente(Long locadoraId, String razaoSocial, String cnpj, Contato contato, Endereco endereco) {
+        this.locadoraId = Objects.requireNonNull(locadoraId, "Locadora é obrigatória");
+        this.razaoSocial = validarRazaoSocial(razaoSocial);
         this.cnpj = Objects.requireNonNull(cnpj, "CNPJ é obrigatório");
-        this.contato = Objects.requireNonNull(contato, "Contato é obrigatório");
+        this.contato = contato;
         this.endereco = Objects.requireNonNull(endereco, "Endereço é obrigatório");
         this.statusAdimplencia = StatusAdimplencia.ADIMPLENTE;
         this.ativo = true;
@@ -75,8 +79,8 @@ public class Cliente {
     }
 
     public void atualizarDados(String razaoSocial, Contato contato, Endereco endereco) {
-        this.razaoSocial = Objects.requireNonNull(razaoSocial, "Razão social é obrigatória");
-        this.contato = Objects.requireNonNull(contato, "Contato é obrigatório");
+        this.razaoSocial = validarRazaoSocial(razaoSocial);
+        this.contato = contato;
         this.endereco = Objects.requireNonNull(endereco, "Endereço é obrigatório");
     }
 
@@ -93,12 +97,15 @@ public class Cliente {
     }
 
     public void anonimizarDados() {
-        String sufixoUnico = (this.id != null) ? this.id.toString() : UUID.randomUUID().toString();
-        this.contato = new Contato(
-                "ANONIMIZADO",
-                "anonimizado-" + sufixoUnico + "@ziploc.invalid",
-                "0000000000"
-        );
-        this.anonimizadoEm = Instant.now();
+        // CPF, e-mail e telefone ficam nulos para remover dados pessoais sem violar o CHECK de formato de representante_cpf no banco
+        this.contato = new Contato("ANONIMIZADO", null, null, null);
+        this.dataAnonimizacao = Instant.now();
+    }
+
+    private static String validarRazaoSocial(String razaoSocial) {
+        if (razaoSocial == null || razaoSocial.isBlank()) {
+            throw new IllegalArgumentException("Razão social não pode estar em branco");
+        }
+        return razaoSocial.trim();
     }
 }

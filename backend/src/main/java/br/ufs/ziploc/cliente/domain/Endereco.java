@@ -6,11 +6,10 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
-//Endereço da sede do cliente PJ. Não é tabela própria: as colunas ficam
-//dentro da tabela "cliente" (@Embeddable)
+
+//Endereço da sede do cliente PJ
+//Não é tabela própria: as colunas ficam dentro da tabela "cliente" (@Embeddable).
 
 @Embeddable
 @Getter
@@ -36,7 +35,6 @@ public class Endereco {
     @Column(name = "cidade", nullable = false, length = 100)
     private String cidade;
 
-    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "uf", nullable = false, length = 2)
     private String uf;
 }
