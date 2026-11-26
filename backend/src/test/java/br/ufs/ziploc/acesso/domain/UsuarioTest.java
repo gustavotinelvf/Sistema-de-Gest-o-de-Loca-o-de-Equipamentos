@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class UsuarioTest {
 
@@ -102,5 +103,52 @@ class UsuarioTest {
         assertTrue(Perfil.GERENTE.isGrupoAdministrativo());
         assertTrue(Perfil.FINANCEIRO.isGrupoAdministrativo());
         assertFalse(Perfil.ATENDENTE.isGrupoAdministrativo());
+    }
+
+    @Test
+    void criarUsuario_naoEstaAnonimizado() {
+        Usuario u = Usuario.criarAtivo(1L, "Bia", "bia@x.com", "hash", Perfil.ATENDENTE, null);
+
+        assertNull(u.getAnonimizadoEm());
+        assertFalse(u.isAnonimizado());
+    }
+
+    @Test
+    void ativar_usuarioAnonimizado_rejeita() {
+        Usuario u = Usuario.criarAtivo(1L, "Bia", "bia@x.com", "hash", Perfil.ATENDENTE, null);
+        u.inativar();
+
+        Instant agora = Instant.now();
+        ReflectionTestUtils.setField(u, "anonimizadoEm", agora);
+        ReflectionTestUtils.setField(u, "senhaHash", null);
+
+        assertTrue(u.isAnonimizado());
+        assertEquals(agora, u.getAnonimizadoEm());
+
+        IllegalStateException erro = assertThrows(IllegalStateException.class, u::ativar);
+
+        assertEquals("Um usuário anonimizado não pode ser reativado", erro.getMessage());
+        assertEquals(StatusUsuario.INATIVO, u.getStatus());
+    }
+
+    @Test
+    void ativar_gerenteSemCpf_rejeita_RD016() {
+        Usuario u = Usuario.criarAtivo(1L, "Ana", "ana@x.com", "hash", Perfil.GERENTE, "12345678901");
+        u.inativar();
+
+        ReflectionTestUtils.setField(u, "cpf", null);
+
+        assertThrows(IllegalArgumentException.class, u::ativar);
+        assertEquals(StatusUsuario.INATIVO, u.getStatus());
+    }
+
+    @Test
+    void perfil_contemSomenteOsCincoPerfisOficiais() {
+        assertEquals(
+                java.util.Set.of("GERENTE", "FINANCEIRO", "ATENDENTE", "ESTOQUISTA", "TECNICO"),
+                java.util.Arrays.stream(Perfil.values())
+                        .map(Perfil::name)
+                        .collect(java.util.stream.Collectors.toSet())
+        );
     }
 }

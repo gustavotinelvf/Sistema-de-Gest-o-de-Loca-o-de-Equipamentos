@@ -187,9 +187,10 @@ class FaturaIntegracaoTest {
 
     private long criarUsuario(String perfil, String sufixo) {
         return jdbc.queryForObject(
-                "INSERT INTO usuario (locadora_id, nome, email, senha_hash, perfil, status, data_ativacao) VALUES (?, ?, ?, ?, ?, 'ATIVO', now()) RETURNING id",
+                "INSERT INTO usuario (locadora_id, nome, email, cpf, senha_hash, perfil, status, data_ativacao) VALUES (?, ?, ?, ?, ?, ?, 'ATIVO', now()) RETURNING id",
                 Long.class, locadora, perfil,
                 perfil.toLowerCase() + "." + sufixo + "@teste.com",
+                "GERENTE".equals(perfil) ? cpf() : null,
                 "$2a$10$" + "A".repeat(53), perfil);
     }
 
@@ -197,5 +198,11 @@ class FaturaIntegracaoTest {
         return String.format("%014d",
                 Math.floorMod(UUID.randomUUID().getMostSignificantBits(),
                         100_000_000_000_000L));
+    }
+
+    private static String cpf() {
+        return String.format("%011d",
+                Math.floorMod(UUID.randomUUID().getMostSignificantBits(),
+                        100_000_000_000L));
     }
 }
