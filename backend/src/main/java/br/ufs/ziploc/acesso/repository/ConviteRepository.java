@@ -10,7 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ConviteRepository extends JpaRepository<Convite, Long> {
 
-    Optional<Convite> findByToken(String token);
+    /** O link do e-mail traz o token em texto: o service calcula o hash e busca por ele. */
+    Optional<Convite> findByTokenHash(String tokenHash);
 
     /** Convites ainda PENDENTES cuja data de expiração já passou (rotina da RD017). */
     @Query("""
