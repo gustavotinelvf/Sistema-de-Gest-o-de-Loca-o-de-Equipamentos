@@ -28,10 +28,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SolicitacaoAnaliseTest {
+    private static final String CONDICOES = "Devolver os equipamentos no prazo contratado.";
+
     @Mock
     private SolicitacaoRepository solicitacaoRepository;
     @Mock
@@ -44,9 +47,10 @@ class SolicitacaoAnaliseTest {
 
     @BeforeEach
     void preparar() {
-        solicitacao = new Solicitacao(1L, 2L, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10));
-        solicitacao.adicionarItem(30L, 2);
+        solicitacao = new Solicitacao(1L, 1L, 2L, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10));
+        solicitacao.adicionarItem(30L, 2, new BigDecimal("50.00"));
         ReflectionTestUtils.setField(solicitacao, "id", 7L);
+        ReflectionTestUtils.setField(solicitacao.getItens().get(0), "id", 8L);
     }
 
     @Test
@@ -54,7 +58,9 @@ class SolicitacaoAnaliseTest {
         when(solicitacaoRepository.findComTravaById(7L)).thenReturn(Optional.of(solicitacao));
         when(disponibilidadeApi.alocarUnidades(List.of(new ItemPedidoDTO(30L, 2)), LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10))).thenReturn(List.of(new UnidadeDTO(100L, 30L, new BigDecimal("50.00")), new UnidadeDTO(101L, 30L, new BigDecimal("50.00"))));
         when(contratoRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
-        ContratoDTO dto = service.aprovar(7L, 5L, new BigDecimal("10.00"));
+
+        ContratoDTO dto = service.aprovar(7L, 5L, new BigDecimal("10.00"), CONDICOES);
+
         assertThat(dto.status()).isEqualTo("PLANEJADO");
         assertThat(dto.solicitacaoId()).isEqualTo(7L);
         assertThat(dto.valorTotal()).isEqualByComparingTo("1000.00");
@@ -62,13 +68,14 @@ class SolicitacaoAnaliseTest {
         assertThat(dto.itens()).extracting(ItemContratoDTO::unidadeId).containsExactly(100L, 101L);
         assertThat(solicitacao.getStatus()).isEqualTo(StatusSolicitacao.APROVADA);
         assertThat(solicitacao.getAnalisadoPorId()).isEqualTo(5L);
+        verify(solicitacaoRepository).flush();
     }
 
     @Test
     void naoCriaContratoSemUnidades() {
         when(solicitacaoRepository.findComTravaById(7L)).thenReturn(Optional.of(solicitacao));
         when(disponibilidadeApi.alocarUnidades(any(), any(), any())).thenThrow(new IndisponibilidadeException(List.of(new IndisponibilidadeException.Falta(30L, 2, 1))));
-        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN)).isInstanceOf(IndisponibilidadeException.class);
+        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN, CONDICOES)).isInstanceOf(IndisponibilidadeException.class);
         verifyNoInteractions(contratoRepository);
     }
 
@@ -76,8 +83,15 @@ class SolicitacaoAnaliseTest {
     void naoAprovaSolicitacaoJaAnalisada() {
         solicitacao.rejeitar(5L, "Motivo");
         when(solicitacaoRepository.findComTravaById(7L)).thenReturn(Optional.of(solicitacao));
-        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN, CONDICOES)).isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(disponibilidadeApi, contratoRepository);
+    }
+
+    @Test
+    void exigeCondicoesDeDevolucao() {
+        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN, " ")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.aprovar(7L, 5L, BigDecimal.TEN, null)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(solicitacaoRepository, disponibilidadeApi, contratoRepository);
     }
 
     @Test

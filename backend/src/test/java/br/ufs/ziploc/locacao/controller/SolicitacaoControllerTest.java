@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -40,6 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(SolicitacaoController.class)
 @Import(SecurityConfig.class)
 class SolicitacaoControllerTest {
+    private static final String CONDICOES = "Devolver os equipamentos no prazo contratado.";
+
     @Autowired
     private MockMvc mvc;
     @MockitoBean
@@ -67,27 +70,35 @@ class SolicitacaoControllerTest {
     @Test
     void aprovaERespondeCriado() throws Exception {
         ContratoDTO dto = new ContratoDTO(70L, 7L, 1L, null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10), "PLANEJADO", new BigDecimal("1000.00"), new BigDecimal("12.50"), List.of());
-        when(solicitacaoService.aprovar(7L, 5L, new BigDecimal("12.50"))).thenReturn(dto);
-        mvc.perform(aprovar("{\"percentualMulta\":12.50}")).andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(70)).andExpect(jsonPath("$.status").value("PLANEJADO"));
+        when(solicitacaoService.aprovar(7L, 5L, new BigDecimal("12.50"), CONDICOES)).thenReturn(dto);
+        mvc.perform(aprovar("{\"percentualMulta\":12.50,\"condicoesDevolucao\":\"" + CONDICOES + "\"}")).andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(70)).andExpect(jsonPath("$.status").value("PLANEJADO"));
+        verify(solicitacaoService).aprovar(7L, 5L, new BigDecimal("12.50"), CONDICOES);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"percentualMulta\":-1}", "{\"percentualMulta\":100.01}", "{\"percentualMulta\":1.234}", ""})
+    @ValueSource(strings = {"{}", "{\"condicoesDevolucao\":\"Motivo\"}", "{\"percentualMulta\":-1,\"condicoesDevolucao\":\"Motivo\"}", "{\"percentualMulta\":100.01,\"condicoesDevolucao\":\"Motivo\"}", "{\"percentualMulta\":1.234,\"condicoesDevolucao\":\"Motivo\"}", ""})
     void recusaPercentualInvalido(String corpo) throws Exception {
+        mvc.perform(aprovar(corpo)).andExpect(status().isBadRequest());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"percentualMulta\":10}", "{\"percentualMulta\":10,\"condicoesDevolucao\":null}", "{\"percentualMulta\":10,\"condicoesDevolucao\":\"\"}", "{\"percentualMulta\":10,\"condicoesDevolucao\":\" \"}"})
+    void recusaCondicoesDeDevolucaoInvalidas(String corpo) throws Exception {
         mvc.perform(aprovar(corpo)).andExpect(status().isBadRequest());
         verifyNoInteractions(solicitacaoService);
     }
 
     @Test
     void respondeConflitoComFaltas() throws Exception {
-        when(solicitacaoService.aprovar(any(), any(), any())).thenThrow(new IndisponibilidadeException(List.of(new IndisponibilidadeException.Falta(30L, 2, 1))));
-        mvc.perform(aprovar("{\"percentualMulta\":10}")).andExpect(status().isConflict()).andExpect(jsonPath("$.faltas[0].modeloId").value(30));
+        when(solicitacaoService.aprovar(any(), any(), any(), anyString())).thenThrow(new IndisponibilidadeException(List.of(new IndisponibilidadeException.Falta(30L, 2, 1))));
+        mvc.perform(aprovar("{\"percentualMulta\":10,\"condicoesDevolucao\":\"" + CONDICOES + "\"}")).andExpect(status().isConflict()).andExpect(jsonPath("$.faltas[0].modeloId").value(30));
     }
 
     @Test
     void respondeConflitoQuandoBancoRecusaReserva() throws Exception {
-        when(solicitacaoService.aprovar(any(), any(), any())).thenThrow(new DataIntegrityViolationException("falha", new RuntimeException("viola ex_item_contrato_sem_overbooking")));
-        mvc.perform(aprovar("{\"percentualMulta\":10}")).andExpect(status().isConflict());
+        when(solicitacaoService.aprovar(any(), any(), any(), anyString())).thenThrow(new DataIntegrityViolationException("falha", new SQLException("viola reserva_sem_sobreposicao", "23P01")));
+        mvc.perform(aprovar("{\"percentualMulta\":10,\"condicoesDevolucao\":\"" + CONDICOES + "\"}")).andExpect(status().isConflict()).andExpect(jsonPath("$.detail").value("Uma das unidades já está reservada no período."));
     }
 
     @Test
@@ -128,7 +139,7 @@ class SolicitacaoControllerTest {
 
     @Test
     void impedeAtendenteDeAprovarSolicitacao() throws Exception {
-        mvc.perform(post("/api/solicitacoes/7/aprovacao").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"percentualMulta\":10}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/solicitacoes/7/aprovacao").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"percentualMulta\":10,\"condicoesDevolucao\":\"" + CONDICOES + "\"}")).andExpect(status().isForbidden());
         verifyNoInteractions(solicitacaoService);
     }
 

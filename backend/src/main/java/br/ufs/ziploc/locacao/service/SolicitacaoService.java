@@ -1,5 +1,6 @@
 package br.ufs.ziploc.locacao.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.disponibilidade.api.DisponibilidadeApi;
 import br.ufs.ziploc.disponibilidade.api.ItemPedidoDTO;
 import br.ufs.ziploc.disponibilidade.api.UnidadeDTO;
@@ -40,6 +41,7 @@ public class SolicitacaoService {
     private final ContratoRepository contratoRepository;
     private final DisponibilidadeApi disponibilidadeApi;
     private final UnidadeApi unidadeApi;
+    private final LocadoraApi locadoraApi;
 
     @Transactional
     public SolicitacaoResponse registrar(RegistrarSolicitacaoRequest r, Long registradoPorId) {
@@ -47,7 +49,8 @@ public class SolicitacaoService {
             throw new IllegalArgumentException("A data de início desejada não pode estar no passado.");
         }
 
-        Solicitacao solicitacao = new Solicitacao(r.clienteId(), registradoPorId, r.dataInicioDesejada(), r.dataFimDesejada());
+        Long locadoraId = locadoraApi.obterParametros().id();
+        Solicitacao solicitacao = new Solicitacao(locadoraId, r.clienteId(), registradoPorId, r.dataInicioDesejada(), r.dataFimDesejada());
 
         Set<Long> modelosVistos = new HashSet<>();
         for (RegistrarSolicitacaoRequest.Item item : r.itens()) {
@@ -59,7 +62,7 @@ public class SolicitacaoService {
             if (!modelo.ativo()) {
                 throw new IllegalStateException("O modelo '" + modelo.nome() + "' está inativo e não pode ser solicitado.");
             }
-            solicitacao.adicionarItem(item.modeloId(), item.quantidade());
+            solicitacao.adicionarItem(item.modeloId(), item.quantidade(), modelo.valorDiariaBase());
         }
         return SolicitacaoResponse.de(salvar(solicitacao));
     }
@@ -72,13 +75,18 @@ public class SolicitacaoService {
     /** RD012: justificativa obrigatória; só solicitações PENDENTE podem ser canceladas. */
     @Transactional
     public SolicitacaoResponse cancelar(Long id, String justificativa) {
-        Solicitacao solicitacao = carregar(id);
+        Solicitacao solicitacao = solicitacaoRepository.findComTravaById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Solicitação " + id + " não encontrada."));
         solicitacao.cancelar(justificativa);
         return SolicitacaoResponse.de(solicitacao);
     }
 
     @Transactional
-    public ContratoDTO aprovar(Long id, Long gerenteId, BigDecimal percentualMulta) {
+    public ContratoDTO aprovar(Long id, Long gerenteId, BigDecimal percentualMulta, String condicoesDevolucao) {
+        if (condicoesDevolucao == null || condicoesDevolucao.isBlank()) {
+            throw new IllegalArgumentException("As condições de devolução são obrigatórias.");
+        }
+
         Solicitacao solicitacao = solicitacaoRepository.findComTravaById(id)
                 .orElseThrow(() -> new SolicitacaoNaoEncontradaException(id));
 
@@ -90,8 +98,10 @@ public class SolicitacaoService {
 
         List<UnidadeDTO> unidades = disponibilidadeApi.alocarUnidades(pedido, solicitacao.getDataInicioDesejada(), solicitacao.getDataFimDesejada());
 
-        Contrato contrato = new Contrato(solicitacao, calcularValorTotal(solicitacao, unidades), percentualMulta);
-        unidades.forEach(u -> contrato.adicionarItem(u.unidadeId(), u.valorDiaria()));
+        solicitacaoRepository.flush();
+
+        Contrato contrato = new Contrato(solicitacao, calcularValorTotal(solicitacao, unidades), percentualMulta, condicoesDevolucao);
+        unidades.forEach(u -> contrato.adicionarItem(u.unidadeId(), u.modeloId(), u.valorDiaria()));
 
         return paraDTO(contratoRepository.saveAndFlush(contrato));
     }

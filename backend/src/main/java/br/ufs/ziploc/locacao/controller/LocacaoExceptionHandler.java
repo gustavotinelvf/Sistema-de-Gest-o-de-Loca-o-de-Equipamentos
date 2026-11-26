@@ -3,6 +3,7 @@ package br.ufs.ziploc.locacao.controller;
 import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
 import br.ufs.ziploc.locacao.api.ContratoNaoEncontradoException;
 import br.ufs.ziploc.locacao.service.SolicitacaoNaoEncontradaException;
+import br.ufs.ziploc.shared.persistence.ViolacaoIntegridade;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -27,7 +28,7 @@ public class LocacaoExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail reservaSobreposta(DataIntegrityViolationException e) {
-        if (String.valueOf(e.getMostSpecificCause().getMessage()).contains("ex_item_contrato_sem_overbooking")) {
+        if (ViolacaoIntegridade.temSqlState(e, ViolacaoIntegridade.EXCLUSAO)) {
             return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Uma das unidades já está reservada no período.");
         }
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "A operação viola uma regra de integridade dos dados.");

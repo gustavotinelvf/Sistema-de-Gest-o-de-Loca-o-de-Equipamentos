@@ -46,7 +46,7 @@ public class SolicitacaoController {
     @PostMapping("/{id}/aprovacao")
     @PreAuthorize("hasRole('GERENTE')")
     public ResponseEntity<ContratoDTO> aprovar(@PathVariable Long id, @Valid @RequestBody AprovacaoRequest request, Authentication autenticacao) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(solicitacaoService.aprovar(id, Long.valueOf(autenticacao.getName()), request.percentualMulta()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(solicitacaoService.aprovar(id, Long.valueOf(autenticacao.getName()), request.percentualMulta(), request.condicoesDevolucao()));
     }
 
     @PostMapping("/{id}/reprovacao")

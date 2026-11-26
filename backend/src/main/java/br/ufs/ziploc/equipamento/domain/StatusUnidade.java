@@ -4,7 +4,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public enum StatusUnidade {
-    DISPONIVEL, LOCADA, EM_MANUTENCAO, EM_VISTORIA;
+    DISPONIVEL, LOCADA, EM_MANUTENCAO, EM_VISTORIA, INDISPONIVEL;
 
     public boolean podeTransicionarPara(StatusUnidade destino) {
         return destinosPermitidos().contains(destino);
@@ -16,6 +16,7 @@ public enum StatusUnidade {
             case LOCADA -> EnumSet.of(EM_VISTORIA);
             case EM_VISTORIA -> EnumSet.of(DISPONIVEL, EM_MANUTENCAO);
             case EM_MANUTENCAO -> EnumSet.of(DISPONIVEL);
+            case INDISPONIVEL -> EnumSet.noneOf(StatusUnidade.class);
         };
     }
 }
