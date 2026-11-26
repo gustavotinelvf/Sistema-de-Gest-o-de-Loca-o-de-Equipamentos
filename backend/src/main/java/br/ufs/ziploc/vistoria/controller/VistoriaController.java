@@ -1,5 +1,6 @@
 package br.ufs.ziploc.vistoria.controller;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.vistoria.dto.RegistrarVistoriaRequest;
 import br.ufs.ziploc.vistoria.dto.VistoriaDto;
 import br.ufs.ziploc.vistoria.service.VistoriaService;
@@ -21,14 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class VistoriaController {
 
     private final VistoriaService vistoriaService;
+    private final LocadoraApi locadoraApi;
 
     @PostMapping
     @PreAuthorize("hasRole('TECNICO')")
     public ResponseEntity<VistoriaDto> registrar(@PathVariable("devolucaoId") Long devolucaoId,
                                                  @Valid @RequestBody RegistrarVistoriaRequest request,
                                                  Authentication autenticacao) {
-        /* TODO: locadoraId provisório, igual ao DevolucaoController, até a segurança fornecer a locadora do usuário. */
-        Long locadoraId = 1L;
+        Long locadoraId = locadoraApi.obterParametros().id();
 
         VistoriaDto criada = vistoriaService.registrar(locadoraId, devolucaoId, request.resultado(),
                 request.descricaoAvarias(), Long.valueOf(autenticacao.getName()));
