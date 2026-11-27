@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -132,8 +131,7 @@ public class SolicitacaoService {
     }
 
     private static BigDecimal calcularValorTotal(Solicitacao s, List<UnidadeDTO> unidades) {
-        long dias = ChronoUnit.DAYS.between(s.getDataInicioDesejada(), s.getDataFimDesejada()) + 1;
-        return unidades.stream().map(UnidadeDTO::valorDiaria).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(BigDecimal.valueOf(dias));
+        return unidades.stream().map(UnidadeDTO::valorDiaria).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(BigDecimal.valueOf(s.getQuantidadeDias()));
     }
 
     private static ContratoDTO paraDTO(Contrato c) {
