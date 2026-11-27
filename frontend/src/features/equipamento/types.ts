@@ -1,5 +1,3 @@
-import { createElement } from 'react'
-
 export interface ModeloEquipamento {
   id: number
   nome: string
@@ -9,12 +7,4 @@ export interface ModeloEquipamento {
   quantidadeMinima: number
   quantidadeMaxima: number | null
   ativo: boolean
-}
-
-export function ModelosEquipamentoPage() {
-    return createElement(
-        'main',
-        null,
-        createElement('h1', null, 'Catálogo de Equipamento'),
-    )
 }
