@@ -61,6 +61,22 @@ body {
   margin: 0;
 }
 
+.navegacao-principal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem clamp(1rem, 4vw, 3rem);
+  background: #182a28;
+}
+
+.navegacao-principal a {
+  color: #fff;
+}
+
+.navegacao-principal a[aria-current='page'] {
+  font-weight: 700;
+}
+
 h1,
 h2 {
   font-family: var(--heading);

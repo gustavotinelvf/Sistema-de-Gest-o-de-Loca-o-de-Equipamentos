@@ -44,7 +44,7 @@
 .catalogo {
   box-sizing: border-box;
   width: 100%;
-  min-height: 100svh;
+  flex: 1;
   background: #f2f5f4;
   color: #182a28;
   color-scheme: light;
