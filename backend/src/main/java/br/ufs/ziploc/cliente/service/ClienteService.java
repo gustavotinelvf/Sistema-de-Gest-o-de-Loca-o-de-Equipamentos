@@ -11,12 +11,15 @@ import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
 import br.ufs.ziploc.cliente.dto.ClienteRequestDTO;
 import br.ufs.ziploc.cliente.dto.ClienteResponseDTO;
 import br.ufs.ziploc.cliente.repository.ClienteRepository;
+import br.ufs.ziploc.cliente.repository.ClienteSpecs;
 import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +59,41 @@ public class ClienteService implements ClienteApi {
             }
             throw e;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ClienteResponseDTO> listar(
+            String razaoSocial,
+            String cnpj,
+            Boolean ativo,
+            StatusAdimplencia statusAdimplencia,
+            Pageable pageable
+    ) {
+        Long locadoraId = locadoraApi.obterParametros().id();
+        return clienteRepository
+                .findAll(ClienteSpecs.comFiltros(locadoraId, razaoSocial, cnpj, ativo, statusAdimplencia), pageable)
+                .map(ClienteResponseDTO::de);
+    }
+
+    @Transactional(readOnly = true)
+    public ClienteResponseDTO buscarPorId(Long id) {
+        Long locadoraId = locadoraApi.obterParametros().id();
+        Cliente cliente = clienteRepository.findByIdAndLocadoraId(id, locadoraId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com id: " + id));
+        return ClienteResponseDTO.de(cliente);
+    }
+
+    @Transactional(readOnly = true)
+    public ClienteResponseDTO buscarPorCnpj(String cnpj) {
+        if (!CnpjValidador.ehValido(cnpj)) {
+            throw new IllegalArgumentException("CNPJ inválido.");
+        }
+
+        Long locadoraId = locadoraApi.obterParametros().id();
+        String cnpjLimpo = CnpjValidador.limpar(cnpj);
+        Cliente cliente = clienteRepository.findByCnpjAndLocadoraId(cnpjLimpo, locadoraId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com CNPJ: " + cnpj));
+        return ClienteResponseDTO.de(cliente);
     }
 
     @Override
