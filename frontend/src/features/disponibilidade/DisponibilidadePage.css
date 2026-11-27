@@ -1,8 +1,8 @@
 .disponibilidade {
   flex: 1;
   padding: clamp(1rem, 4vw, 3rem);
-  background: #f2f5f4;
-  color: #182a28;
+  background: var(--fundo);
+  color: var(--texto);
   color-scheme: light;
 }
 
@@ -17,9 +17,9 @@
   gap: 1rem;
   max-width: 36rem;
   padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #d9e3e0;
+  border: 1px solid var(--borda);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--superficie);
 }
 
 .disponibilidade label {
@@ -32,21 +32,21 @@
   width: 100%;
   min-width: 0;
   padding: 0.5rem;
-  border: 1px solid #869e98;
+  border: 1px solid var(--borda-campo);
   border-radius: 0.5rem;
   font: inherit;
 }
 
 .disponibilidade [role='alert'] {
-  color: #a12d24;
+  color: var(--erro);
 }
 
 .disponibilidade__resultado {
   margin-top: 1.5rem;
   padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #d9e3e0;
+  border: 1px solid var(--borda);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--superficie);
 }
 
 .disponibilidade__resultado h2 {
@@ -63,11 +63,11 @@
 }
 
 .disponibilidade__tabela thead {
-  background: #eaf1ef;
+  background: var(--fundo-tabela);
 }
 
 .disponibilidade__tabela :is(th, td) {
   padding: 0.75rem;
-  border-bottom: 1px solid #d9e3e0;
+  border-bottom: 1px solid var(--borda);
   text-align: left;
 }

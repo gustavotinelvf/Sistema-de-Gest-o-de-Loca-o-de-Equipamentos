@@ -1,4 +1,4 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import { DisponibilidadePage } from './features/disponibilidade/DisponibilidadePage'
 import { ModelosEquipamentoPage } from './features/equipamento/pages/ModelosEquipamentoPage'
 import { UnidadesEquipamentoPage } from './features/equipamento/pages/UnidadesEquipamentoPage'
@@ -10,22 +10,30 @@ import { NovaSolicitacaoPage } from './features/locacao/NovaSolicitacaoPage'
 export default function App() {
   return (
     <BrowserRouter>
-      <nav className="navegacao-principal" aria-label="Módulos">
-        <NavLink to="/" end>Catálogo</NavLink>
-        <NavLink to="/unidades">Unidades</NavLink>
-        <NavLink to="/disponibilidade">Disponibilidade</NavLink>
-        <NavLink to="/solicitacoes" end>Fila de solicitações</NavLink>
-        <NavLink to="/solicitacoes/nova">Nova solicitação</NavLink>
-      </nav>
-      <Routes>
-        <Route path="/" element={<ModelosEquipamentoPage />} />
-        <Route path="/unidades" element={<UnidadesEquipamentoPage />} />
-        <Route path="/disponibilidade" element={<DisponibilidadePage />} />
-        <Route path="/solicitacoes" element={<FilaSolicitacoesPage solicitacoes={[]} />} />
-        <Route path="/solicitacoes/nova" element={<NovaSolicitacaoPage modelos={[]} />} />
-        <Route path="/solicitacoes/:id" element={<DetalheSolicitacaoPage />} />
-        <Route path="/contratos/:id" element={<DetalheContratoPage />} />
-      </Routes>
+      <div className="ziploc">
+        <aside className="ziploc__lateral">
+          <Link className="ziploc__marca" to="/">
+            <img src={`${import.meta.env.BASE_URL}Logo.svg`} width="40" height="40" alt="" />
+            ZipLoc
+          </Link>
+          <nav className="navegacao-principal" aria-label="Módulos">
+            <NavLink to="/" end>Catálogo</NavLink>
+            <NavLink to="/unidades">Unidades</NavLink>
+            <NavLink to="/disponibilidade">Disponibilidade</NavLink>
+            <NavLink to="/solicitacoes" end>Fila de solicitações</NavLink>
+            <NavLink to="/solicitacoes/nova">Nova solicitação</NavLink>
+          </nav>
+        </aside>
+        <Routes>
+          <Route path="/" element={<ModelosEquipamentoPage />} />
+          <Route path="/unidades" element={<UnidadesEquipamentoPage />} />
+          <Route path="/disponibilidade" element={<DisponibilidadePage />} />
+          <Route path="/solicitacoes" element={<FilaSolicitacoesPage solicitacoes={[]} />} />
+          <Route path="/solicitacoes/nova" element={<NovaSolicitacaoPage modelos={[]} />} />
+          <Route path="/solicitacoes/:id" element={<DetalheSolicitacaoPage />} />
+          <Route path="/contratos/:id" element={<DetalheContratoPage />} />
+        </Routes>
+      </div>
     </BrowserRouter>
   )
 }

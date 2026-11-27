@@ -1,8 +1,8 @@
 .fila-solicitacoes {
   padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #d9e3e0;
+  border: 1px solid var(--borda);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--superficie);
 }
 
 .fila-solicitacoes label {
@@ -20,12 +20,12 @@
 }
 
 .fila-solicitacoes thead {
-  background: #eaf1ef;
+  background: var(--fundo-tabela);
 }
 
 .fila-solicitacoes th,
 .fila-solicitacoes td {
   padding: 0.75rem;
-  border-bottom: 1px solid #d9e3e0;
+  border-bottom: 1px solid var(--borda);
   text-align: left;
 }

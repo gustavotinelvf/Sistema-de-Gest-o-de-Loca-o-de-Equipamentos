@@ -45,8 +45,8 @@
   box-sizing: border-box;
   width: 100%;
   flex: 1;
-  background: #f2f5f4;
-  color: #182a28;
+  background: var(--fundo);
+  color: var(--texto);
   color-scheme: light;
 }
 
@@ -58,36 +58,36 @@
 .catalogo__painel {
   min-width: 0;
   padding: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #d9e3e0;
+  border: 1px solid var(--borda);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--superficie);
 }
 
 .catalogo__filtros select {
   min-height: 2.5rem;
-  border: 1px solid #869e98;
+  border: 1px solid var(--borda-campo);
   border-radius: 0.5rem;
-  background: #fff;
-  color: #182a28;
+  background: var(--superficie);
+  color: var(--texto);
 }
 
 .catalogo__filtros select:focus-visible {
-  outline: 2px solid #00695c;
+  outline: 2px solid var(--roxo);
   outline-offset: 2px;
 }
 
 .catalogo thead {
-  background: #eaf1ef;
+  background: var(--fundo-tabela);
 }
 
 .catalogo th,
 .catalogo td {
-  border-color: #d9e3e0;
+  border-color: var(--borda);
 }
 
 .catalogo td.catalogo__vazio {
   padding-block: 2rem;
-  color: #526762;
+  color: var(--texto-suave);
   text-align: center;
 }
 .catalogo__cabecalho {
@@ -124,11 +124,11 @@
   box-sizing: border-box;
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid #869e98;
+  border: 1px solid var(--borda-campo);
   border-radius: 0.5rem;
   font: inherit;
 }
 
 .catalogo__formulario [role='alert'] {
-  color: #a12d24;
+  color: var(--erro);
 }
