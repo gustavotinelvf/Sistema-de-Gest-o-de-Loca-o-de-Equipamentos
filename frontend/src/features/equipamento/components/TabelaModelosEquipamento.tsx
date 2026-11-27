@@ -4,10 +4,11 @@ const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL
 
 interface Props {
   modelos: readonly ModeloEquipamento[]
+  mensagemVazia: string
   aoEditar: (modelo: ModeloEquipamento) => void
 }
 
-export function TabelaModelosEquipamento({ modelos, aoEditar }: Props) {
+export function TabelaModelosEquipamento({ modelos, mensagemVazia, aoEditar }: Props) {
   return (
     <div className="catalogo__tabela">
       <table aria-label="Modelos de equipamento">
@@ -24,7 +25,7 @@ export function TabelaModelosEquipamento({ modelos, aoEditar }: Props) {
           {modelos.length === 0 ? (
             <tr>
               <td colSpan={5} className="catalogo__vazio">
-                Os modelos cadastrados serão exibidos aqui.
+                <span role="status">{mensagemVazia}</span>
               </td>
             </tr>
           ) : (
@@ -33,7 +34,11 @@ export function TabelaModelosEquipamento({ modelos, aoEditar }: Props) {
                 <th scope="row">{modelo.nome}</th>
                 <td>{modelo.categoria}</td>
                 <td>{moeda.format(modelo.valorDiariaBase)}</td>
-                <td>{modelo.ativo ? 'Ativo' : 'Inativo'}</td>
+                <td>
+                  <span className="catalogo__situacao" data-ativo={modelo.ativo}>
+                    {modelo.ativo ? 'Ativo' : 'Inativo'}
+                  </span>
+                </td>
                 <td>
                   <button type="button" aria-label={`Editar ${modelo.nome}`} onClick={() => aoEditar(modelo)}>
                     Editar

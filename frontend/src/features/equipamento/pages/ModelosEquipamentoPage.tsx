@@ -13,6 +13,7 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
   const [cadastro, setCadastro] = useState<Cadastro | null>(null)
   const categorias = Array.from(new Set(modelos.map((modelo) => modelo.categoria)))
   const criandoModelo = cadastro?.tipo === 'modelo' && !cadastro.modelo
+  const temFiltros = categoria !== '' || situacao !== 'todos'
 
   const modelosFiltrados = modelos.filter((modelo) => {
     const correspondeCategoria = categoria === '' || modelo.categoria === categoria
@@ -23,14 +24,17 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
   })
 
   return (
-    <main className="catalogo">
-      <header className="catalogo__cabecalho">
-        <h1>Catálogo de equipamentos</h1>
+    <main className="catalogo catalogo--modelos">
+      <header className="catalogo__cabecalho catalogo__destaque">
+        <div>
+          <h1>Catálogo de equipamentos</h1>
+          <p>Gerencie os modelos de locação e cadastre unidades por número de série.</p>
+        </div>
         <div className="catalogo__acoes">
           <button type="button" aria-expanded={criandoModelo} onClick={() => setCadastro(criandoModelo ? null : { tipo: 'modelo' })}>
             {criandoModelo ? 'Fechar cadastro de modelo' : 'Novo modelo'}
           </button>
-          <button type="button" aria-expanded={cadastro?.tipo === 'unidade'} onClick={() => setCadastro(cadastro?.tipo === 'unidade' ? null : { tipo: 'unidade' })}>
+          <button className="catalogo__botao-secundario" type="button" aria-expanded={cadastro?.tipo === 'unidade'} onClick={() => setCadastro(cadastro?.tipo === 'unidade' ? null : { tipo: 'unidade' })}>
             {cadastro?.tipo === 'unidade' ? 'Fechar cadastro de unidade' : 'Nova unidade'}
           </button>
         </div>
@@ -51,7 +55,7 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
         </section>
       )}
 
-      <section className="catalogo__painel" aria-labelledby="titulo-modelos">
+      <section className="catalogo__painel catalogo__lista-modelos" aria-labelledby="titulo-modelos">
         <h2 id="titulo-modelos">Modelos cadastrados</h2>
 
         <div className="catalogo__filtros">
@@ -75,10 +79,21 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
               <option value="inativos">Inativos</option>
             </select>
           </label>
+          {temFiltros && (
+            <button className="catalogo__limpar" type="button" onClick={() => {
+              setCategoria('')
+              setSituacao('todos')
+            }}>
+              Limpar filtros
+            </button>
+          )}
         </div>
 
         <TabelaModelosEquipamento
           modelos={modelosFiltrados}
+          mensagemVazia={modelos.length > 0
+            ? 'Nenhum modelo corresponde aos filtros selecionados.'
+            : 'Os modelos cadastrados serão exibidos aqui.'}
           aoEditar={(modelo) => setCadastro({ tipo: 'modelo', modelo })}
         />
       </section>

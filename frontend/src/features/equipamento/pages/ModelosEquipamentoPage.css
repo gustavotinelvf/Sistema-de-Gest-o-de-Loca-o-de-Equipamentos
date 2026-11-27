@@ -132,3 +132,117 @@
 .catalogo__formulario [role='alert'] {
   color: var(--erro);
 }
+
+.catalogo--modelos .catalogo__destaque {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  align-items: end;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border-radius: 1rem;
+  background: var(--preto);
+  color: var(--superficie);
+}
+
+.catalogo__destaque::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(115deg, #100c16 38%, #240044);
+  content: '';
+}
+
+.catalogo__destaque::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 auto;
+  width: min(42%, 20rem);
+  clip-path: polygon(75% 0, 83% 0, 36% 100%, 28% 100%, 44% 0, 48% 0, 0 100%);
+  background: var(--roxo);
+  opacity: 0.24;
+  content: '';
+}
+
+.catalogo__destaque h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.65rem, 3.5vw, 2.5rem);
+}
+
+.catalogo__destaque p {
+  margin: 0;
+  color: #ded4e7;
+}
+
+.catalogo__destaque .catalogo__botao-secundario {
+  border-color: #a77abb;
+  background: #21112a;
+}
+
+.catalogo__destaque .catalogo__botao-secundario:hover {
+  background: #362043;
+}
+
+.catalogo__lista-modelos {
+  box-shadow: 0 8px 24px #2813350d;
+}
+
+.catalogo__lista-modelos .catalogo__filtros {
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.catalogo__lista-modelos .catalogo__filtros label {
+  flex: 0 1 12rem;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.catalogo__lista-modelos :is(.catalogo__limpar, tbody button) {
+  border-color: var(--borda);
+  background: var(--superficie);
+  color: var(--roxo-escuro);
+}
+
+.catalogo__lista-modelos :is(.catalogo__limpar, tbody button):hover {
+  background: var(--fundo-tabela);
+}
+
+.catalogo__lista-modelos .catalogo__tabela {
+  border: 1px solid var(--borda);
+  border-radius: 0.75rem;
+}
+
+.catalogo__lista-modelos thead th {
+  white-space: nowrap;
+}
+
+.catalogo__lista-modelos tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.catalogo__lista-modelos td.catalogo__vazio {
+  padding-block: 3rem;
+}
+
+.catalogo__situacao {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 1rem;
+  background: var(--fundo);
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.catalogo__situacao[data-ativo='true'] {
+  background: var(--fundo-tabela);
+  color: var(--roxo-escuro);
+}
+
+@media (max-width: 36rem) {
+  .catalogo__lista-modelos .catalogo__filtros label {
+    flex-basis: 100%;
+  }
+}
