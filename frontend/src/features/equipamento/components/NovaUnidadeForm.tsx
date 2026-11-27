@@ -1,28 +1,37 @@
 import { useState } from 'react'
-import type { ModeloEquipamento } from '../types'
+import type { ModeloEquipamento, UnidadeEquipamento } from '../types'
 
-interface Props {
-  modelos: readonly ModeloEquipamento[]
-}
+type Props =
+  | { modelos: readonly ModeloEquipamento[]; unidade?: never }
+  | { unidade: UnidadeEquipamento; modelos?: never }
 
-export function NovaUnidadeForm({ modelos }: Props) {
-  const [numeroSerie, setNumeroSerie] = useState('')
+export function NovaUnidadeForm({ modelos, unidade }: Props) {
+  const [numeroSerie, setNumeroSerie] = useState(unidade?.numeroSerie ?? '')
   const [serieTocada, setSerieTocada] = useState(false)
-  const modelosAtivos = modelos.filter((modelo) => modelo.ativo)
+  const modelosAtivos = modelos?.filter((modelo) => modelo.ativo) ?? []
   const erroSerie = serieTocada && numeroSerie.trim() === ''
 
   return (
     <form className="catalogo__formulario" onSubmit={(event) => event.preventDefault()}>
-      <label>
-        Modelo
-        <select name="modeloId" defaultValue="" required disabled={modelosAtivos.length === 0}>
-          <option value="" disabled>Selecione um modelo</option>
-          {modelosAtivos.map((modelo) => (
-            <option key={modelo.id} value={modelo.id}>{modelo.nome}</option>
-          ))}
-        </select>
-      </label>
-      {modelosAtivos.length === 0 && <p>Cadastre um modelo ativo para vincular a unidade.</p>}
+      {unidade ? (
+        <label>
+          Modelo
+          <input value={unidade.modeloNome} readOnly />
+        </label>
+      ) : (
+        <>
+          <label>
+            Modelo
+            <select name="modeloId" defaultValue="" required disabled={modelosAtivos.length === 0}>
+              <option value="" disabled>Selecione um modelo</option>
+              {modelosAtivos.map((modelo) => (
+                <option key={modelo.id} value={modelo.id}>{modelo.nome}</option>
+              ))}
+            </select>
+          </label>
+          {modelosAtivos.length === 0 && <p>Cadastre um modelo ativo para vincular a unidade.</p>}
+        </>
+      )}
       <label>
         Número de série
         <input
