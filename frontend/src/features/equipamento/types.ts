@@ -8,3 +8,5 @@ export interface ModeloEquipamento {
   quantidadeMaxima: number | null
   ativo: boolean
 }
+
+export type NovoModeloEquipamento = Omit<ModeloEquipamento, 'id' | 'ativo'>

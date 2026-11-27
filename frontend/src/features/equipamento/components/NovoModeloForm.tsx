@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import type { NovoModeloEquipamento } from '../types'
 
 const esquema = z.object({
   nome: z.string().trim().min(1, 'Informe o nome.').max(200),
@@ -20,15 +21,36 @@ const esquema = z.object({
 
 type Campos = z.infer<typeof esquema>
 
-export function NovoModeloForm() {
-  const { register, formState: { errors } } = useForm<Campos>({
+interface Props {
+  aoSalvar?: (modelo: NovoModeloEquipamento) => Promise<void>
+}
+
+export function NovoModeloForm({ aoSalvar }: Props) {
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<Campos>({
     resolver: zodResolver(esquema),
     mode: 'onTouched',
     defaultValues: { nome: '', categoria: '', descricao: '', diaria: '', minima: '0', maxima: '' },
   })
 
+  const enviar = handleSubmit(async ({ nome, categoria, descricao, diaria, minima, maxima }) => {
+    if (!aoSalvar) return
+
+    try {
+      await aoSalvar({
+        nome,
+        categoria,
+        descricao,
+        valorDiariaBase: Number(diaria.replace(',', '.')),
+        quantidadeMinima: Number(minima),
+        quantidadeMaxima: maxima === '' ? null : Number(maxima),
+      })
+    } catch {
+      setError('root', { message: 'Não foi possível salvar o modelo. Tente novamente.' })
+    }
+  })
+
   return (
-    <form className="catalogo__formulario" onSubmit={(event) => event.preventDefault()} noValidate>
+    <form className="catalogo__formulario" onSubmit={enviar} noValidate>
       <label>
         Nome
         <input {...register('nome')} maxLength={200} required aria-invalid={!!errors.nome} />
@@ -59,8 +81,11 @@ export function NovoModeloForm() {
         <input {...register('maxima')} inputMode="numeric" aria-invalid={!!errors.maxima} />
         {errors.maxima && <span role="alert">{errors.maxima.message}</span>}
       </label>
-      <p>O salvamento será habilitado após a integração com a API.</p>
-      <button type="submit" disabled>Salvar modelo</button>
+      {!aoSalvar && <p>O salvamento será habilitado após a integração com a API.</p>}
+      {errors.root && <p role="alert">{errors.root.message}</p>}
+      <button type="submit" disabled={!aoSalvar || isSubmitting}>
+        {isSubmitting ? 'Salvando…' : 'Salvar modelo'}
+      </button>
     </form>
   )
 }
