@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ModeloEquipamento } from '../types'
 
 interface Props {
-  modelos: ModeloEquipamento[]
+  modelos: readonly ModeloEquipamento[]
 }
 
 export function NovaUnidadeForm({ modelos }: Props) {

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import type { NovoModeloEquipamento } from '../types'
+import type { ModeloEquipamento, NovoModeloEquipamento } from '../types'
 
 const esquema = z.object({
   nome: z.string().trim().min(1, 'Informe o nome.').max(200),
@@ -22,14 +22,22 @@ const esquema = z.object({
 type Campos = z.infer<typeof esquema>
 
 interface Props {
+  modelo?: ModeloEquipamento
   aoSalvar?: (modelo: NovoModeloEquipamento) => Promise<void>
 }
 
-export function NovoModeloForm({ aoSalvar }: Props) {
+export function NovoModeloForm({ modelo, aoSalvar }: Props) {
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<Campos>({
     resolver: zodResolver(esquema),
     mode: 'onTouched',
-    defaultValues: { nome: '', categoria: '', descricao: '', diaria: '', minima: '0', maxima: '' },
+    defaultValues: {
+      nome: modelo?.nome ?? '',
+      categoria: modelo?.categoria ?? '',
+      descricao: modelo?.descricao ?? '',
+      diaria: modelo ? String(modelo.valorDiariaBase).replace('.', ',') : '',
+      minima: String(modelo?.quantidadeMinima ?? 0),
+      maxima: modelo?.quantidadeMaxima?.toString() ?? '',
+    },
   })
 
   const enviar = handleSubmit(async ({ nome, categoria, descricao, diaria, minima, maxima }) => {

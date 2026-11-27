@@ -5,13 +5,14 @@ import { TabelaModelosEquipamento } from '../components/TabelaModelosEquipamento
 import type { ModeloEquipamento } from '../types'
 import './ModelosEquipamentoPage.css'
 
-const modelos: ModeloEquipamento[] = []
-const categorias: string[] = []
+type Cadastro = { tipo: 'modelo'; modelo?: ModeloEquipamento } | { tipo: 'unidade' }
 
-export function ModelosEquipamentoPage() {
+export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly ModeloEquipamento[] }) {
   const [categoria, setCategoria] = useState('')
   const [situacao, setSituacao] = useState('todos')
-  const [cadastro, setCadastro] = useState<'modelo' | 'unidade' | null>(null)
+  const [cadastro, setCadastro] = useState<Cadastro | null>(null)
+  const categorias = Array.from(new Set(modelos.map((modelo) => modelo.categoria)))
+  const criandoModelo = cadastro?.tipo === 'modelo' && !cadastro.modelo
 
   const modelosFiltrados = modelos.filter((modelo) => {
     const correspondeCategoria = categoria === '' || modelo.categoria === categoria
@@ -26,23 +27,24 @@ export function ModelosEquipamentoPage() {
       <header className="catalogo__cabecalho">
         <h1>Catálogo de equipamentos</h1>
         <div className="catalogo__acoes">
-          <button type="button" aria-expanded={cadastro === 'modelo'} onClick={() => setCadastro(cadastro === 'modelo' ? null : 'modelo')}>
-            {cadastro === 'modelo' ? 'Fechar cadastro de modelo' : 'Novo modelo'}
+          <button type="button" aria-expanded={criandoModelo} onClick={() => setCadastro(criandoModelo ? null : { tipo: 'modelo' })}>
+            {criandoModelo ? 'Fechar cadastro de modelo' : 'Novo modelo'}
           </button>
-          <button type="button" aria-expanded={cadastro === 'unidade'} onClick={() => setCadastro(cadastro === 'unidade' ? null : 'unidade')}>
-            {cadastro === 'unidade' ? 'Fechar cadastro de unidade' : 'Nova unidade'}
+          <button type="button" aria-expanded={cadastro?.tipo === 'unidade'} onClick={() => setCadastro(cadastro?.tipo === 'unidade' ? null : { tipo: 'unidade' })}>
+            {cadastro?.tipo === 'unidade' ? 'Fechar cadastro de unidade' : 'Nova unidade'}
           </button>
         </div>
       </header>
 
-      {cadastro === 'modelo' && (
+      {cadastro?.tipo === 'modelo' && (
         <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-cadastro">
-          <h2 id="titulo-cadastro">Novo modelo</h2>
-          <NovoModeloForm />
+          <h2 id="titulo-cadastro">{cadastro.modelo ? `Editar ${cadastro.modelo.nome}` : 'Novo modelo'}</h2>
+          <NovoModeloForm key={cadastro.modelo?.id ?? 'novo'} modelo={cadastro.modelo} />
+          {cadastro.modelo && <button type="button" onClick={() => setCadastro(null)}>Fechar edição</button>}
         </section>
       )}
 
-      {cadastro === 'unidade' && (
+      {cadastro?.tipo === 'unidade' && (
         <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-cadastro-unidade">
           <h2 id="titulo-cadastro-unidade">Nova unidade física</h2>
           <NovaUnidadeForm modelos={modelos} />
@@ -75,7 +77,10 @@ export function ModelosEquipamentoPage() {
           </label>
         </div>
 
-        <TabelaModelosEquipamento modelos={modelosFiltrados} />
+        <TabelaModelosEquipamento
+          modelos={modelosFiltrados}
+          aoEditar={(modelo) => setCadastro({ tipo: 'modelo', modelo })}
+        />
       </section>
     </main>
   )

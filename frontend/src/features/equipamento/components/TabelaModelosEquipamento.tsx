@@ -3,10 +3,11 @@ import type { ModeloEquipamento } from '../types'
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 interface Props {
-  modelos: ModeloEquipamento[]
+  modelos: readonly ModeloEquipamento[]
+  aoEditar: (modelo: ModeloEquipamento) => void
 }
 
-export function TabelaModelosEquipamento({ modelos }: Props) {
+export function TabelaModelosEquipamento({ modelos, aoEditar }: Props) {
   return (
     <div className="catalogo__tabela">
       <table aria-label="Modelos de equipamento">
@@ -16,12 +17,13 @@ export function TabelaModelosEquipamento({ modelos }: Props) {
             <th scope="col">Categoria</th>
             <th scope="col">Valor da diária</th>
             <th scope="col">Situação</th>
+            <th scope="col">Ações</th>
           </tr>
         </thead>
         <tbody>
           {modelos.length === 0 ? (
             <tr>
-              <td colSpan={4} className="catalogo__vazio">
+              <td colSpan={5} className="catalogo__vazio">
                 Os modelos cadastrados serão exibidos aqui.
               </td>
             </tr>
@@ -32,6 +34,11 @@ export function TabelaModelosEquipamento({ modelos }: Props) {
                 <td>{modelo.categoria}</td>
                 <td>{moeda.format(modelo.valorDiariaBase)}</td>
                 <td>{modelo.ativo ? 'Ativo' : 'Inativo'}</td>
+                <td>
+                  <button type="button" aria-label={`Editar ${modelo.nome}`} onClick={() => aoEditar(modelo)}>
+                    Editar
+                  </button>
+                </td>
               </tr>
             ))
           )}
