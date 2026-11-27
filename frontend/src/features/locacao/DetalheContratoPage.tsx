@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { AcoesContrato } from './AcoesContrato'
 import './NovaSolicitacaoPage.css'
 
 const rotulosStatus = {
@@ -10,14 +11,15 @@ const rotulosStatus = {
 
 interface ContratoDetalhe {
   id: number
-  solicitacaoId: number
+  solicitacaoId: number | null
   clienteId: number
   dataInicioPrevista: string
   dataFimPrevista: string
   status: keyof typeof rotulosStatus
   valorTotal: number
   percentualMulta: number
-  itens: readonly { id: number; unidadeId: number; valorDiariaContratada: number }[]
+  justificativaCancelamento?: string | null
+  itens: readonly { id: number; unidadeId: number; valorDiariaContratada?: number }[]
 }
 
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -35,8 +37,12 @@ export function DetalheContratoPage({ contrato }: { contrato?: ContratoDetalhe }
       {detalhe ? (
         <>
           <dl>
-            <dt>Solicitação de origem</dt>
-            <dd><Link to={`/solicitacoes/${detalhe.solicitacaoId}`}>#{detalhe.solicitacaoId}</Link></dd>
+            {detalhe.solicitacaoId !== null && (
+              <>
+                <dt>Solicitação de origem</dt>
+                <dd><Link to={`/solicitacoes/${detalhe.solicitacaoId}`}>#{detalhe.solicitacaoId}</Link></dd>
+              </>
+            )}
             <dt>Cliente</dt>
             <dd>#{detalhe.clienteId}</dd>
             <dt>Período previsto</dt>
@@ -47,17 +53,34 @@ export function DetalheContratoPage({ contrato }: { contrato?: ContratoDetalhe }
             <dd>{moeda.format(detalhe.valorTotal)}</dd>
             <dt>Multa por atraso</dt>
             <dd>{percentual.format(detalhe.percentualMulta / 100)}</dd>
+            {detalhe.justificativaCancelamento && (
+              <>
+                <dt>Justificativa do cancelamento</dt>
+                <dd>{detalhe.justificativaCancelamento}</dd>
+              </>
+            )}
           </dl>
           <section aria-labelledby="titulo-unidades-contrato">
             <h2 id="titulo-unidades-contrato">Unidades alocadas</h2>
             {detalhe.itens.length > 0 ? (
               <ul>
                 {detalhe.itens.map((item) => (
-                  <li key={item.id}>Unidade #{item.unidadeId} · Diária contratada de {moeda.format(item.valorDiariaContratada)}</li>
+                  <li key={item.id}>
+                    Unidade #{item.unidadeId}
+                    {item.valorDiariaContratada !== undefined && ` · Diária contratada de ${moeda.format(item.valorDiariaContratada)}`}
+                  </li>
                 ))}
               </ul>
             ) : <p>Nenhuma unidade alocada neste contrato.</p>}
           </section>
+          {(detalhe.status === 'PLANEJADO' || detalhe.status === 'ATIVO') && (
+            <AcoesContrato
+              key={detalhe.id}
+              status={detalhe.status}
+              dataFimPrevista={detalhe.dataFimPrevista}
+              possuiUnidades={detalhe.itens.length > 0}
+            />
+          )}
         </>
       ) : (
         <p role="status">

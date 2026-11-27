@@ -95,7 +95,6 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
             Adicionar item
           </button>
         </fieldset>
-        <p>O envio será habilitado com a seleção de cliente e a integração com a API.</p>
         <button type="submit" disabled>Registrar solicitação</button>
       </form>
     </main>

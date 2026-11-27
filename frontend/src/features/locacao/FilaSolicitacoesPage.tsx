@@ -60,7 +60,7 @@ export function FilaSolicitacoesPage({ solicitacoes }: { solicitacoes: readonly 
                   <td colSpan={6}>
                     <span role="status">
                       {solicitacoes.length === 0
-                        ? 'As solicitações serão exibidas após a integração com a API.'
+                        ? ''
                         : 'Nenhuma solicitação nesta situação.'}
                     </span>
                   </td>

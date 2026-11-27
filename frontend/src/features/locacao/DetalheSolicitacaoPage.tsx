@@ -69,7 +69,6 @@ export function DetalheSolicitacaoPage({ solicitacao }: { solicitacao?: Solicita
                 <button type="button" disabled>Reprovar</button>
                 <button type="button" disabled>Cancelar solicitação</button>
               </fieldset>
-              <p>As ações de análise serão habilitadas após a integração com a API.</p>
             </form>
           )}
         </>
