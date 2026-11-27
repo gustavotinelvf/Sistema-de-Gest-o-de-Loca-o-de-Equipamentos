@@ -1,0 +1,31 @@
+.fila-solicitacoes {
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid #d9e3e0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.fila-solicitacoes label {
+  max-width: 16rem;
+  margin-bottom: 1rem;
+}
+
+.fila-solicitacoes__tabela {
+  overflow-x: auto;
+}
+
+.fila-solicitacoes table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fila-solicitacoes thead {
+  background: #eaf1ef;
+}
+
+.fila-solicitacoes th,
+.fila-solicitacoes td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #d9e3e0;
+  text-align: left;
+}
