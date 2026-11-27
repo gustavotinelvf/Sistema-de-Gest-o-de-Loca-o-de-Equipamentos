@@ -1,4 +1,4 @@
-import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Outlet, Route, Routes } from 'react-router-dom'
 import { DisponibilidadePage } from './features/disponibilidade/DisponibilidadePage'
 import { ModelosEquipamentoPage } from './features/equipamento/pages/ModelosEquipamentoPage'
 import { UnidadesEquipamentoPage } from './features/equipamento/pages/UnidadesEquipamentoPage'
@@ -21,15 +21,15 @@ export default function App() {
             <NavLink to="/unidades">Unidades</NavLink>
             <NavLink to="/disponibilidade">Disponibilidade</NavLink>
             <NavLink to="/solicitacoes" end>Fila de solicitações</NavLink>
-            <NavLink to="/solicitacoes/nova">Nova solicitação</NavLink>
           </nav>
         </aside>
         <Routes>
           <Route path="/" element={<ModelosEquipamentoPage />} />
           <Route path="/unidades" element={<UnidadesEquipamentoPage />} />
           <Route path="/disponibilidade" element={<DisponibilidadePage />} />
-          <Route path="/solicitacoes" element={<FilaSolicitacoesPage solicitacoes={[]} />} />
-          <Route path="/solicitacoes/nova" element={<NovaSolicitacaoPage modelos={[]} />} />
+          <Route path="/solicitacoes" element={<><FilaSolicitacoesPage solicitacoes={[]} /><Outlet /></>}>
+            <Route path="nova" element={<NovaSolicitacaoPage modelos={[]} />} />
+          </Route>
           <Route path="/solicitacoes/:id" element={<DetalheSolicitacaoPage />} />
           <Route path="/contratos/:id" element={<DetalheContratoPage />} />
         </Routes>

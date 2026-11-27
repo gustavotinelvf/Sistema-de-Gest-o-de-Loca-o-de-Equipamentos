@@ -129,3 +129,99 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.solicitacao__modal {
+  box-sizing: border-box;
+  width: min(48rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 1rem;
+  background: var(--superficie);
+  box-shadow: 0 24px 80px #000a;
+}
+
+html:has(.solicitacao__modal[open]) {
+  overflow: hidden;
+}
+
+.solicitacao__modal[open] {
+  animation: solicitacao-modal-entrar 260ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
+}
+
+.solicitacao__modal::backdrop {
+  background: #000b;
+  backdrop-filter: blur(4px);
+  animation: solicitacao-fundo-entrar 260ms ease both;
+}
+
+.solicitacao__modal[data-fechando='true'] {
+  animation: solicitacao-modal-sair 180ms ease-in both;
+}
+
+.solicitacao__modal[data-fechando='true']::backdrop {
+  animation: solicitacao-fundo-sair 180ms ease-in both;
+}
+
+.solicitacao__modal .solicitacao__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  border-radius: 0;
+}
+
+.solicitacao__modal h2 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+.solicitacao__modal form {
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.solicitacao__modal .solicitacao__fechar,
+.solicitacao__modal .solicitacao__cancelar {
+  border-color: var(--borda-campo);
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+.solicitacao__modal .solicitacao__fechar:hover,
+.solicitacao__modal .solicitacao__cancelar:hover {
+  background: var(--fundo-tabela);
+}
+
+.solicitacao__modal .solicitacao__fechar {
+  flex: 0 0 2.5rem;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+@keyframes solicitacao-modal-entrar {
+  from { opacity: 0; transform: translateY(0.75rem) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes solicitacao-modal-sair {
+  to { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+}
+
+@keyframes solicitacao-fundo-entrar {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes solicitacao-fundo-sair {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solicitacao__modal[open],
+  .solicitacao__modal[open]::backdrop {
+    animation-duration: 1ms;
+  }
+}

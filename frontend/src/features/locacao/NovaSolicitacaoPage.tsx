@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import type { ModeloEquipamento } from '../equipamento/types'
 import './NovaSolicitacaoPage.css'
 
@@ -14,6 +15,9 @@ interface Props {
 }
 
 export function NovaSolicitacaoPage({ modelos }: Props) {
+  const dialogo = useRef<HTMLDialogElement>(null)
+  const navigate = useNavigate()
+  const [fechando, setFechando] = useState(false)
   const hoje = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date())
   const modelosAtivos = modelos.filter((modelo) => modelo.ativo)
   const { control, register, formState: { errors } } = useForm<CamposSolicitacao>({
@@ -22,11 +26,43 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'itens' })
 
+  useEffect(() => {
+    const elemento = dialogo.current
+    elemento?.showModal()
+    return () => elemento?.close()
+  }, [])
+
   return (
-    <main className="solicitacao solicitacao--nova">
+    <dialog
+      ref={dialogo}
+      className="solicitacao solicitacao--nova solicitacao__modal"
+      aria-labelledby="titulo-nova-solicitacao"
+      data-fechando={fechando}
+      onCancel={(event) => {
+        event.preventDefault()
+        setFechando(true)
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return
+        const limites = event.currentTarget.getBoundingClientRect()
+        if (event.clientX < limites.left || event.clientX > limites.right ||
+            event.clientY < limites.top || event.clientY > limites.bottom) {
+          setFechando(true)
+        }
+      }}
+      onAnimationEnd={(event) => {
+        if (fechando && event.target === event.currentTarget && event.animationName === 'solicitacao-modal-sair') {
+          event.currentTarget.close()
+          void navigate('/solicitacoes', { replace: true })
+        }
+      }}
+    >
       <header className="solicitacao__cabecalho cabecalho-marca">
-        <h1>Nova solicitação de locação</h1>
-        <p>Informe o período desejado e os equipamentos que o cliente precisa.</p>
+        <div>
+          <h2 id="titulo-nova-solicitacao">Nova solicitação de locação</h2>
+          <p>Informe o período desejado e os equipamentos que o cliente precisa.</p>
+        </div>
+        <button type="button" className="solicitacao__fechar" aria-label="Fechar nova solicitação" onClick={() => setFechando(true)}>×</button>
       </header>
       <form onSubmit={(event) => event.preventDefault()}>
         <fieldset className="solicitacao__periodo">
@@ -106,10 +142,10 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
           </button>
         </fieldset>
         <div className="solicitacao__rodape">
-          <Link to="/solicitacoes">Voltar para a fila</Link>
+          <button type="button" className="solicitacao__cancelar" onClick={() => setFechando(true)}>Cancelar</button>
           <button type="submit" disabled>Registrar solicitação</button>
         </div>
       </form>
-    </main>
+    </dialog>
   )
 }
