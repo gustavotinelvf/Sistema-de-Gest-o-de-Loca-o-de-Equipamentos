@@ -41,7 +41,7 @@ class AprovacaoConcorrenciaTest {
         String sufixo = UUID.randomUUID().toString();
         locadora = jdbc.queryForObject("INSERT INTO locadora (razao_social, cnpj, cep_sede, logradouro_sede, numero_sede, bairro_sede, cidade_sede, uf_sede, raio_entrega_km, percentual_multa_atraso) VALUES ('Locadora Concorrencia', ?, '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE', 100, 10) RETURNING id", Long.class, cnpj());
         cliente = jdbc.queryForObject("INSERT INTO cliente (locadora_id, razao_social, cnpj, representante_nome, email, telefone, cep, logradouro, numero, bairro, cidade, uf) VALUES (?, 'Construtora Concorrente', ?, 'Ana', ?, '79999999999', '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE') RETURNING id", Long.class, locadora, cnpj(), "cliente." + sufixo + "@teste.com");
-        gerente = jdbc.queryForObject("INSERT INTO usuario (locadora_id, nome, email, senha_hash, perfil, status, data_ativacao) VALUES (?, 'Gerente Teste', ?, ?, 'GERENTE', 'ATIVO', now()) RETURNING id", Long.class, locadora, "gerente." + sufixo + "@teste.com", "$2a$10$" + "A".repeat(53));
+        gerente = jdbc.queryForObject("INSERT INTO usuario (locadora_id, nome, email, cpf, senha_hash, perfil, status, data_ativacao) VALUES (?, 'Gerente Teste', ?, ?, ?, 'GERENTE', 'ATIVO', now()) RETURNING id", Long.class, locadora, "gerente." + sufixo + "@teste.com", cpf(), "$2a$10$" + "A".repeat(53));
         modelo = jdbc.queryForObject("INSERT INTO modelo_equipamento (locadora_id, nome, categoria, especificacoes, valor_diaria) VALUES (?, 'Andaime concorrente', 'Andaime', 'Equipamento de teste', 50) RETURNING id", Long.class, locadora);
         unidade = jdbc.queryForObject("INSERT INTO unidade_equipamento (locadora_id, modelo_id, numero_serie) VALUES (?, ?, 'CONC-1') RETURNING id", Long.class, locadora, modelo);
     }
@@ -104,5 +104,9 @@ class AprovacaoConcorrenciaTest {
 
     private static String cnpj() {
         return String.format("%014d", Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 100_000_000_000_000L));
+    }
+
+    private static String cpf() {
+        return String.format("%011d", Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 100_000_000_000L));
     }
 }
