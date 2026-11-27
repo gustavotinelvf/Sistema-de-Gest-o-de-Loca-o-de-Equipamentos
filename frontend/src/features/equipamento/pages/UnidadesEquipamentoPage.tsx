@@ -17,7 +17,7 @@ export function UnidadesEquipamentoPage({ unidades }: { unidades?: readonly Unid
 
   return (
     <main className="catalogo">
-      <header className="catalogo__cabecalho catalogo__destaque">
+      <header className="catalogo__cabecalho catalogo__destaque cabecalho-marca">
         <div>
           <h1>Unidades físicas</h1>
           <p>Acompanhe cada equipamento pelo número de série e pelo status operacional.</p>

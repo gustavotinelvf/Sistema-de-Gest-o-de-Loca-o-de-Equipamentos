@@ -25,7 +25,7 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
 
   return (
     <main className="catalogo">
-      <header className="catalogo__cabecalho catalogo__destaque">
+      <header className="catalogo__cabecalho catalogo__destaque cabecalho-marca">
         <div>
           <h1>Catálogo de equipamentos</h1>
           <p>Gerencie os modelos de locação e cadastre unidades por número de série.</p>

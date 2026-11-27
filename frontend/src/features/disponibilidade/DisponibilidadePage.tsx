@@ -18,7 +18,7 @@ export function DisponibilidadePage({ resultados }: { resultados?: readonly Disp
 
   return (
     <main className="disponibilidade">
-      <header className="disponibilidade__cabecalho">
+      <header className="disponibilidade__cabecalho cabecalho-marca">
         <h1>Disponibilidade de equipamentos</h1>
         <p>Consulte quantas unidades de cada modelo podem ser reservadas no período.</p>
       </header>
