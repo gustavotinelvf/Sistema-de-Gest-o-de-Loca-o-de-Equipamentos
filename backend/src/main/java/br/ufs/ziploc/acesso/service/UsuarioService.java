@@ -1,9 +1,11 @@
 package br.ufs.ziploc.acesso.service;
 
+import br.ufs.ziploc.acesso.api.UsuarioApi;
 import br.ufs.ziploc.acesso.domain.Usuario;
 import br.ufs.ziploc.acesso.dto.UsuarioResponseDTO;
 import br.ufs.ziploc.acesso.repository.UsuarioRepository;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -12,9 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 /** Gestão de usuários pelo Gerente: listar, inativar e reativar. */
 @Service
 @RequiredArgsConstructor
-public class UsuarioService {
+public class UsuarioService implements UsuarioApi {
 
     private final UsuarioRepository usuarioRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> consultarPerfilAtivo(Long usuarioId) {
+        return usuarioRepository.findById(usuarioId)
+                .filter(Usuario::isAtivo)
+                .filter(usuario -> !usuario.isAnonimizado())
+                .map(usuario -> usuario.getPerfil().name());
+    }
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> listar() {
