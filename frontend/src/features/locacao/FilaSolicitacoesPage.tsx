@@ -1,13 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { formatarDataSolicitacao, rotulosStatus } from './formatacaoSolicitacao'
 import './NovaSolicitacaoPage.css'
 import './FilaSolicitacoesPage.css'
-
-const rotulosStatus = {
-  PENDENTE: 'Pendente',
-  APROVADA: 'Aprovada',
-  REJEITADA: 'Rejeitada',
-  CANCELADA: 'Cancelada',
-}
 
 interface SolicitacaoResumo {
   id: number
@@ -18,7 +13,6 @@ interface SolicitacaoResumo {
   status: keyof typeof rotulosStatus
 }
 
-const data = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' })
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function FilaSolicitacoesPage({ solicitacoes }: { solicitacoes: readonly SolicitacaoResumo[] }) {
@@ -53,10 +47,10 @@ export function FilaSolicitacoesPage({ solicitacoes }: { solicitacoes: readonly 
             <tbody>
               {visiveis.map((solicitacao) => (
                 <tr key={solicitacao.id}>
-                  <th scope="row">#{solicitacao.id}</th>
+                  <th scope="row"><Link to={`/solicitacoes/${solicitacao.id}`}>#{solicitacao.id}</Link></th>
                   <td>#{solicitacao.clienteId}</td>
-                  <td>{data.format(new Date(solicitacao.dataInicioDesejada))}</td>
-                  <td>{data.format(new Date(solicitacao.dataFimDesejada))}</td>
+                  <td>{formatarDataSolicitacao(solicitacao.dataInicioDesejada)}</td>
+                  <td>{formatarDataSolicitacao(solicitacao.dataFimDesejada)}</td>
                   <td>{moeda.format(solicitacao.valorEstimado)}</td>
                   <td>{rotulosStatus[solicitacao.status]}</td>
                 </tr>
