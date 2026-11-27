@@ -3,7 +3,9 @@ package br.ufs.ziploc.locacao.controller;
 import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
+import br.ufs.ziploc.locacao.domain.StatusSolicitacao;
 import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
+import br.ufs.ziploc.locacao.dto.SolicitacaoResumo;
 import br.ufs.ziploc.locacao.service.SolicitacaoNaoEncontradaException;
 import br.ufs.ziploc.locacao.service.SolicitacaoService;
 import br.ufs.ziploc.shared.seguranca.JwtService;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -152,6 +155,33 @@ class SolicitacaoControllerTest {
     @Test
     void impedeFinanceiroDeRegistrarSolicitacao() throws Exception {
         mvc.perform(post("/api/solicitacoes").with(csrf()).with(user("5").roles("FINANCEIRO")).contentType(MediaType.APPLICATION_JSON).content("{\"clienteId\":1,\"dataInicioDesejada\":\"2027-12-01\",\"dataFimDesejada\":\"2027-12-10\",\"itens\":[{\"modeloId\":1,\"quantidade\":2}]}")).andExpect(status().isForbidden());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @Test
+    void listaFilaDeSolicitacoesPendentes_RF010() throws Exception {
+        SolicitacaoResumo resumo = new SolicitacaoResumo(7L, 1L, 5L, null, LocalDate.of(2027, 12, 1), LocalDate.of(2027, 12, 10), new BigDecimal("200.00"), StatusSolicitacao.PENDENTE);
+        when(solicitacaoService.listar(StatusSolicitacao.PENDENTE)).thenReturn(List.of(resumo));
+        mvc.perform(get("/api/solicitacoes").param("status", "PENDENTE").with(user("5").roles("GERENTE"))).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(7)).andExpect(jsonPath("$[0].status").value("PENDENTE")).andExpect(jsonPath("$[0].valorEstimado").value(200.00));
+        verify(solicitacaoService).listar(StatusSolicitacao.PENDENTE);
+    }
+
+    @Test
+    void listaSemFiltroParaAtendente() throws Exception {
+        when(solicitacaoService.listar(null)).thenReturn(List.of());
+        mvc.perform(get("/api/solicitacoes").with(user("5").roles("ATENDENTE"))).andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        verify(solicitacaoService).listar(null);
+    }
+
+    @Test
+    void recusaStatusInexistenteNaFila() throws Exception {
+        mvc.perform(get("/api/solicitacoes").param("status", "QUALQUER").with(user("5").roles("GERENTE"))).andExpect(status().isBadRequest());
+        verifyNoInteractions(solicitacaoService);
+    }
+
+    @Test
+    void impedeFinanceiroDeVerAFila() throws Exception {
+        mvc.perform(get("/api/solicitacoes").with(user("5").roles("FINANCEIRO"))).andExpect(status().isForbidden());
         verifyNoInteractions(solicitacaoService);
     }
 }
