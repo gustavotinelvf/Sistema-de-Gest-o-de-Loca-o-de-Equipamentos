@@ -40,3 +40,34 @@
 .disponibilidade [role='alert'] {
   color: #a12d24;
 }
+
+.disponibilidade__resultado {
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid #d9e3e0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.disponibilidade__resultado h2 {
+  color: inherit;
+}
+
+.disponibilidade__tabela {
+  overflow-x: auto;
+}
+
+.disponibilidade__tabela table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.disponibilidade__tabela thead {
+  background: #eaf1ef;
+}
+
+.disponibilidade__tabela :is(th, td) {
+  padding: 0.75rem;
+  border-bottom: 1px solid #d9e3e0;
+  text-align: left;
+}

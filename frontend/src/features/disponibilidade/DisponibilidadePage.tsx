@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import './DisponibilidadePage.css'
 
-export function DisponibilidadePage() {
+interface DisponibilidadeModelo {
+  modeloId: number
+  nome: string
+  categoria: string
+  valorDiaria: number
+  quantidadeDisponivel: number
+}
+
+const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+export function DisponibilidadePage({ resultados }: { resultados?: readonly DisponibilidadeModelo[] }) {
   const [inicio, setInicio] = useState('')
   const [fim, setFim] = useState('')
   const periodoInvalido = Boolean(inicio && fim && fim <= inicio)
@@ -35,8 +45,45 @@ export function DisponibilidadePage() {
           <input type="text" name="categoria" maxLength={100} />
         </label>
         <button type="submit" disabled>Consultar disponibilidade</button>
-        <p>A consulta será habilitada após a integração com a API.</p>
       </form>
+
+      <section className="disponibilidade__resultado" aria-labelledby="titulo-resultado-disponibilidade">
+        <h2 id="titulo-resultado-disponibilidade">Resultado da consulta</h2>
+        <div className="disponibilidade__tabela">
+          <table aria-labelledby="titulo-resultado-disponibilidade">
+            <thead>
+              <tr>
+                <th scope="col">Modelo</th>
+                <th scope="col">Categoria</th>
+                <th scope="col">Diária</th>
+                <th scope="col">Unidades disponíveis</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resultados?.length ? (
+                resultados.map((modelo) => (
+                  <tr key={modelo.modeloId}>
+                    <th scope="row">{modelo.nome}</th>
+                    <td>{modelo.categoria}</td>
+                    <td>{moeda.format(modelo.valorDiaria)}</td>
+                    <td>{modelo.quantidadeDisponivel}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4}>
+                    <span role="status">
+                      {resultados === undefined
+                        ? ''
+                        : 'Nenhum modelo disponível para o período e os filtros selecionados.'}
+                    </span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   )
 }
