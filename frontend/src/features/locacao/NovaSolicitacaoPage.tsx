@@ -1,4 +1,5 @@
 import { useFieldArray, useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import type { ModeloEquipamento } from '../equipamento/types'
 import './NovaSolicitacaoPage.css'
 
@@ -22,10 +23,13 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
   const { fields, append, remove } = useFieldArray({ control, name: 'itens' })
 
   return (
-    <main className="solicitacao">
-      <h1>Nova solicitação de locação</h1>
+    <main className="solicitacao solicitacao--nova">
+      <header className="solicitacao__cabecalho cabecalho-marca">
+        <h1>Nova solicitação de locação</h1>
+        <p>Informe o período desejado e os equipamentos que o cliente precisa.</p>
+      </header>
       <form onSubmit={(event) => event.preventDefault()}>
-        <fieldset>
+        <fieldset className="solicitacao__periodo">
           <legend>Período desejado</legend>
           <label>
             Data de início
@@ -53,7 +57,13 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
 
         <fieldset>
           <legend>Itens da solicitação</legend>
-          {modelosAtivos.length === 0 && <p>Aguardando a lista de modelos cadastrados.</p>}
+          {fields.length === 0 && (
+            <p className="solicitacao__itens-vazio" role="status">
+              {modelosAtivos.length === 0
+                ? 'Aguardando a lista de modelos cadastrados.'
+                : 'Nenhum item adicionado.'}
+            </p>
+          )}
           {fields.map((item, indice) => (
             <div className="solicitacao__item" key={item.id}>
               <label>
@@ -95,7 +105,10 @@ export function NovaSolicitacaoPage({ modelos }: Props) {
             Adicionar item
           </button>
         </fieldset>
-        <button type="submit" disabled>Registrar solicitação</button>
+        <div className="solicitacao__rodape">
+          <Link to="/solicitacoes">Voltar para a fila</Link>
+          <button type="submit" disabled>Registrar solicitação</button>
+        </div>
       </form>
     </main>
   )
