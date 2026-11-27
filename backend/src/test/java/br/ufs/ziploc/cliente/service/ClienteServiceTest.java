@@ -13,11 +13,15 @@ import br.ufs.ziploc.cliente.repository.ClienteRepository;
 import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import java.util.Optional;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,25 +69,41 @@ class ClienteServiceTest {
         );
     }
 
-    @Test
-    void deveCadastrarClienteNormalizandoCnpjCepEUf_RF001_RD007() {
-        ClienteRequestDTO request = criarRequestValido("11.222.333/0001-81");
+    private void configurarLocadora() {
         ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
         when(parametros.id()).thenReturn(1L);
         when(locadoraApi.obterParametros()).thenReturn(parametros);
+    }
+
+    @Test
+    void deveCadastrarClienteNormalizandoCnpjCepEUf_RF001_RD007() {
+        ClienteRequestDTO request = criarRequestValido("11.222.333/0001-81");
+
+        configurarLocadora();
         when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(false);
-        when(clienteRepository.save(any(Cliente.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(clienteRepository.saveAndFlush(any(Cliente.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClienteResponseDTO resposta = clienteService.cadastrar(request);
 
         assertEquals(1L, resposta.locadoraId());
         assertEquals("Construtora Horizonte Ltda", resposta.razaoSocial());
         assertEquals("11222333000181", resposta.cnpj());
+        assertEquals("Maria Silva", resposta.representanteNome());
+        assertEquals("12345678901", resposta.representanteCpf());
+        assertEquals("maria@construtora.com", resposta.email());
+        assertEquals("79999990000", resposta.telefone());
         assertEquals("49000000", resposta.cep());
+        assertEquals("Av. Beira Mar", resposta.logradouro());
+        assertEquals("100", resposta.numero());
+        assertEquals("Sala 2", resposta.complemento());
+        assertEquals("Jabotiana", resposta.bairro());
+        assertEquals("Aracaju", resposta.cidade());
         assertEquals("SE", resposta.uf());
         assertEquals(StatusAdimplencia.ADIMPLENTE, resposta.statusAdimplencia());
         assertTrue(resposta.ativo());
-        verify(clienteRepository).save(any(Cliente.class));
+        assertNull(resposta.dataAnonimizacao());
+
+        verify(clienteRepository).saveAndFlush(any(Cliente.class));
     }
 
     @Test
@@ -94,14 +114,130 @@ class ClienteServiceTest {
         verifyNoInteractions(clienteRepository, locadoraApi);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "abc11222333000181",
+            "11222333000181xyz",
+            "11@222@333@0001@81",
+            "11.222333/0001-81",
+            "11222333000181-",
+            " 11222333000181",
+            "11222333000181 "
+    })
+    void deveRejeitarCnpjComFormatoInvalido(String cnpj) {
+        ClienteRequestDTO request = criarRequestValido(cnpj);
+
+        assertThrows(IllegalArgumentException.class, () -> clienteService.cadastrar(request));
+        verifyNoInteractions(clienteRepository, locadoraApi);
+    }
+
     @Test
     void deveLancarConflitoQuandoCnpjJaExistir_RD008() {
         ClienteRequestDTO request = criarRequestValido("11222333000181");
         when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(true);
 
-        assertThrows(ConflitoException.class, () -> clienteService.cadastrar(request));
-        verify(clienteRepository, never()).save(any());
+        ConflitoException ex = assertThrows(
+                ConflitoException.class,
+                () -> clienteService.cadastrar(request)
+        );
+
+        assertEquals("Já existe um cliente cadastrado com o CNPJ informado.", ex.getMessage());
+        verify(clienteRepository, never()).saveAndFlush(any());
         verifyNoInteractions(locadoraApi);
+    }
+
+    @Test
+    void deveLancarConflitoQuandoCnpjComMascaraJaExistir() {
+        ClienteRequestDTO request = criarRequestValido("11.222.333/0001-81");
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(true);
+
+        assertThrows(ConflitoException.class, () -> clienteService.cadastrar(request));
+
+        verify(clienteRepository).existsByCnpj("11222333000181");
+        verify(clienteRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(locadoraApi);
+    }
+
+    @Test
+    void deveTratarViolacaoDeUnicidadeDoCnpj() {
+        ClienteRequestDTO request = criarRequestValido("11222333000181");
+
+        configurarLocadora();
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(false);
+
+        ConstraintViolationException violacao = mock(ConstraintViolationException.class);
+        when(violacao.getConstraintName()).thenReturn("cliente_cnpj_key");
+
+        when(clienteRepository.saveAndFlush(any(Cliente.class)))
+                .thenThrow(new DataIntegrityViolationException("CNPJ duplicado", violacao));
+
+        ConflitoException ex = assertThrows(
+                ConflitoException.class,
+                () -> clienteService.cadastrar(request)
+        );
+
+        assertEquals("Já existe um cliente cadastrado com o CNPJ informado.", ex.getMessage());
+        verify(clienteRepository).saveAndFlush(any(Cliente.class));
+    }
+
+    @Test
+    void devePreservarOutrasViolacoesDeIntegridade() {
+        ClienteRequestDTO request = criarRequestValido("11222333000181");
+
+        configurarLocadora();
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(false);
+
+        ConstraintViolationException violacao = mock(ConstraintViolationException.class);
+        when(violacao.getConstraintName()).thenReturn("cliente_locadora_id_fkey");
+
+        DataIntegrityViolationException erro =
+                new DataIntegrityViolationException("Locadora inexistente", violacao);
+
+        when(clienteRepository.saveAndFlush(any(Cliente.class))).thenThrow(erro);
+
+        DataIntegrityViolationException ex = assertThrows(
+                DataIntegrityViolationException.class,
+                () -> clienteService.cadastrar(request)
+        );
+
+        assertSame(erro, ex);
+    }
+
+    @Test
+    void deveCadastrarClienteSemDadosOpcionais() {
+        ClienteRequestDTO request = new ClienteRequestDTO(
+                "Construtora Horizonte Ltda",
+                "11222333000181",
+                null,
+                null,
+                null,
+                null,
+                "49000000",
+                "Av. Beira Mar",
+                "100",
+                null,
+                "Jabotiana",
+                "Aracaju",
+                "SE"
+        );
+
+        configurarLocadora();
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(false);
+        when(clienteRepository.saveAndFlush(any(Cliente.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteResponseDTO resposta = clienteService.cadastrar(request);
+
+        assertNull(resposta.representanteNome());
+        assertNull(resposta.representanteCpf());
+        assertNull(resposta.email());
+        assertNull(resposta.telefone());
+        assertNull(resposta.complemento());
+        assertTrue(resposta.ativo());
+        assertEquals(StatusAdimplencia.ADIMPLENTE, resposta.statusAdimplencia());
+
+        verify(clienteRepository).saveAndFlush(
+                argThat(cliente -> cliente.getContato() == null)
+        );
     }
 
     @Test
@@ -121,6 +257,11 @@ class ClienteServiceTest {
         assertEquals(StatusAdimplencia.ADIMPLENTE, resumo.statusAdimplencia());
         assertTrue(resumo.ativo());
         assertEquals("49000000", resumo.cep());
+        assertEquals("Av. Beira Mar", resumo.logradouro());
+        assertEquals("100", resumo.numero());
+        assertEquals("Sala 2", resumo.complemento());
+        assertEquals("Jabotiana", resumo.bairro());
+        assertEquals("Aracaju", resumo.cidade());
         assertEquals("SE", resumo.uf());
     }
 

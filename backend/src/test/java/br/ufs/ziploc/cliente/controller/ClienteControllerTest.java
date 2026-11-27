@@ -1,5 +1,6 @@
 package br.ufs.ziploc.cliente.controller;
 
+import br.ufs.ziploc.acesso.api.UsuarioApi;
 import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
 import br.ufs.ziploc.cliente.dto.ClienteRequestDTO;
 import br.ufs.ziploc.cliente.dto.ClienteResponseDTO;
@@ -56,6 +57,9 @@ class ClienteControllerTest {
     @MockitoBean
     private JwtService jwtService;
 
+    @MockitoBean
+    private UsuarioApi usuarioApi;
+
     private ClienteResponseDTO criarResponseValido() {
         return new ClienteResponseDTO(
                 10L, 1L, "Construtora Horizonte Ltda", "11222333000181",
@@ -77,8 +81,23 @@ class ClienteControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/api/clientes/10"))
                 .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.locadoraId").value(1))
+                .andExpect(jsonPath("$.razaoSocial").value("Construtora Horizonte Ltda"))
                 .andExpect(jsonPath("$.cnpj").value("11222333000181"))
-                .andExpect(jsonPath("$.statusAdimplencia").value("ADIMPLENTE"));
+                .andExpect(jsonPath("$.representanteNome").value("Maria Silva"))
+                .andExpect(jsonPath("$.representanteCpf").value("12345678901"))
+                .andExpect(jsonPath("$.email").value("maria@construtora.com"))
+                .andExpect(jsonPath("$.telefone").value("79999990000"))
+                .andExpect(jsonPath("$.cep").value("49000000"))
+                .andExpect(jsonPath("$.logradouro").value("Av. Beira Mar"))
+                .andExpect(jsonPath("$.numero").value("100"))
+                .andExpect(jsonPath("$.complemento").value("Sala 2"))
+                .andExpect(jsonPath("$.bairro").value("Jabotiana"))
+                .andExpect(jsonPath("$.cidade").value("Aracaju"))
+                .andExpect(jsonPath("$.uf").value("SE"))
+                .andExpect(jsonPath("$.statusAdimplencia").value("ADIMPLENTE"))
+                .andExpect(jsonPath("$.ativo").value(true))
+                .andExpect(jsonPath("$.dataCadastro").exists());
     }
 
     @Test
@@ -124,6 +143,12 @@ class ClienteControllerTest {
                         .with(user("1").roles("ATENDENTE")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.campos.razaoSocial").exists())
+                .andExpect(jsonPath("$.campos.cnpj").exists())
+                .andExpect(jsonPath("$.campos.cep").exists())
+                .andExpect(jsonPath("$.campos.logradouro").exists())
+                .andExpect(jsonPath("$.campos.numero").exists())
+                .andExpect(jsonPath("$.campos.bairro").exists())
+                .andExpect(jsonPath("$.campos.cidade").exists())
                 .andExpect(jsonPath("$.campos.uf").exists());
 
         verifyNoInteractions(clienteService);
@@ -136,7 +161,7 @@ class ClienteControllerTest {
 
         mvc.perform(post("/api/clientes")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(PAYLOAD_VALIDO)
+                        .content(PAYLOAD_VALIDO.replace("11.222.333/0001-81", "11.222.333/0001-99"))
                         .with(user("1").roles("ATENDENTE")))
                 .andExpect(status().is(422))
                 .andExpect(jsonPath("$.detail").value("CNPJ inválido."));
@@ -153,5 +178,73 @@ class ClienteControllerTest {
                         .with(user("1").roles("ATENDENTE")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Já existe um cliente cadastrado com o CNPJ informado."));
+    }
+
+    @Test
+    void deveRetornar400QuandoEmailForInvalido() throws Exception {
+        mvc.perform(post("/api/clientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PAYLOAD_VALIDO.replace("maria@construtora.com", "email-invalido"))
+                        .with(user("1").roles("ATENDENTE")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.email").exists());
+
+        verifyNoInteractions(clienteService);
+    }
+
+    @Test
+    void deveRetornar400QuandoCpfDoRepresentanteTiverFormatoInvalido() throws Exception {
+        mvc.perform(post("/api/clientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PAYLOAD_VALIDO.replace("12345678901", "123"))
+                        .with(user("1").roles("ATENDENTE")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.representanteCpf").exists());
+
+        verifyNoInteractions(clienteService);
+    }
+
+    @Test
+    void deveRetornar400QuandoJsonForMalformado() throws Exception {
+        mvc.perform(post("/api/clientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{json-invalido")
+                        .with(user("1").roles("ATENDENTE")))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(clienteService);
+    }
+
+    @Test
+    void deveAceitarCadastroSemCamposOpcionais() throws Exception {
+        String payloadMinimo = """
+                {
+                  "razaoSocial": "Construtora Horizonte Ltda",
+                  "cnpj": "11222333000181",
+                  "cep": "49000000",
+                  "logradouro": "Av. Beira Mar",
+                  "numero": "100",
+                  "bairro": "Jabotiana",
+                  "cidade": "Aracaju",
+                  "uf": "SE"
+                }
+                """;
+
+        when(clienteService.cadastrar(any(ClienteRequestDTO.class)))
+                .thenReturn(new ClienteResponseDTO(
+                        10L, 1L, "Construtora Horizonte Ltda", "11222333000181",
+                        null, null, null, null,
+                        "49000000", "Av. Beira Mar", "100", null,
+                        "Jabotiana", "Aracaju", "SE",
+                        StatusAdimplencia.ADIMPLENTE, true, Instant.now(), null
+                ));
+
+        mvc.perform(post("/api/clientes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadMinimo)
+                        .with(user("1").roles("ATENDENTE")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.ativo").value(true));
     }
 }

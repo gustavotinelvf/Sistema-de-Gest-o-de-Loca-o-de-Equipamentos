@@ -13,7 +13,10 @@ import br.ufs.ziploc.cliente.dto.ClienteResponseDTO;
 import br.ufs.ziploc.cliente.repository.ClienteRepository;
 import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,17 +24,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ClienteService implements ClienteApi {
 
+    private static final String CNPJ_DUPLICADO =
+            "Já existe um cliente cadastrado com o CNPJ informado.";
+
     private final ClienteRepository clienteRepository;
     private final LocadoraApi locadoraApi;
 
     @Transactional
     public ClienteResponseDTO cadastrar(ClienteRequestDTO request) {
-        String cnpjLimpo = CnpjValidador.limpar(request.cnpj());
-        if (!CnpjValidador.ehValido(cnpjLimpo)) {
+        if (!CnpjValidador.ehValido(request.cnpj())) {
             throw new IllegalArgumentException("CNPJ inválido.");
         }
+
+        String cnpjLimpo = CnpjValidador.limpar(request.cnpj());
+
         if (clienteRepository.existsByCnpj(cnpjLimpo)) {
-            throw new ConflitoException("Já existe um cliente cadastrado com o CNPJ informado.");
+            throw new ConflitoException(CNPJ_DUPLICADO);
         }
 
         Long locadoraId = locadoraApi.obterParametros().id();
@@ -39,7 +47,15 @@ public class ClienteService implements ClienteApi {
         Endereco endereco = montarEndereco(request);
 
         Cliente cliente = new Cliente(locadoraId, request.razaoSocial(), cnpjLimpo, contato, endereco);
-        return ClienteResponseDTO.de(clienteRepository.save(cliente));
+
+        try {
+            return ClienteResponseDTO.de(clienteRepository.saveAndFlush(cliente));
+        } catch (DataIntegrityViolationException e) {
+            if (violouUnicidadeCnpj(e)) {
+                throw new ConflitoException(CNPJ_DUPLICADO);
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -69,6 +85,20 @@ public class ClienteService implements ClienteApi {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com id: " + clienteId));
     }
 
+    private boolean violouUnicidadeCnpj(Throwable erro) {
+        Throwable causa = erro;
+
+        while (causa != null) {
+            if (causa instanceof ConstraintViolationException violacao
+                    && "cliente_cnpj_key".equals(violacao.getConstraintName())) {
+                return true;
+            }
+            causa = causa.getCause();
+        }
+
+        return false;
+    }
+
     private Contato montarContato(ClienteRequestDTO request) {
         String nome = normalizarOpcional(request.representanteNome());
         String cpf = normalizarOpcional(request.representanteCpf());
@@ -82,7 +112,7 @@ public class ClienteService implements ClienteApi {
     }
 
     private Endereco montarEndereco(ClienteRequestDTO request) {
-        String cepLimpo = request.cep().replaceAll("\\D", "");
+        String cepLimpo = request.cep().replace("-", "");
         return new Endereco(
                 cepLimpo,
                 request.logradouro().trim(),
@@ -90,7 +120,7 @@ public class ClienteService implements ClienteApi {
                 normalizarOpcional(request.complemento()),
                 request.bairro().trim(),
                 request.cidade().trim(),
-                request.uf().trim().toUpperCase()
+                request.uf().trim().toUpperCase(Locale.ROOT)
         );
     }
 

@@ -11,14 +11,16 @@ public final class CnpjValidador {
     }
 
     public static String limpar(String cnpj) {
-        return cnpj == null ? null : cnpj.replaceAll("\\D", "");
+        return cnpj == null ? null : cnpj.replace(".", "").replace("/", "").replace("-", "");
     }
 
     public static boolean ehValido(String cnpj) {
-        String digitos = limpar(cnpj);
-        if (digitos == null || digitos.length() != 14) {
+        if (cnpj == null || !cnpj.matches("[0-9]{14}|[0-9]{2}\\.[0-9]{3}\\.[0-9]{3}/[0-9]{4}-[0-9]{2}")) {
             return false;
         }
+
+        String digitos = limpar(cnpj);
+
         if (digitos.chars().distinct().count() == 1) {
             return false;
         }
