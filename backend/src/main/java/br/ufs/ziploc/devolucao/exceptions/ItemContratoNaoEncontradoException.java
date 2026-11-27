@@ -1,6 +1,8 @@
 package br.ufs.ziploc.devolucao.exceptions;
 
-public class ItemContratoNaoEncontradoException extends RuntimeException {
+import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
+
+public class ItemContratoNaoEncontradoException extends RecursoNaoEncontradoException {
     
     public ItemContratoNaoEncontradoException(Long itemContratoId) {
         super("Item de contrato " + itemContratoId + " não encontrado");

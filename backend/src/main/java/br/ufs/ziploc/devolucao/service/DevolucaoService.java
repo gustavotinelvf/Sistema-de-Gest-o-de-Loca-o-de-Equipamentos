@@ -7,18 +7,21 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import br.ufs.ziploc.devolucao.domain.Devolucao;
 import br.ufs.ziploc.devolucao.dto.DevolucaoDto;
 import br.ufs.ziploc.devolucao.dto.RegistrarDevolucaoDto;
 import br.ufs.ziploc.devolucao.exceptions.ItemContratoNaoEncontradoException;
-import br.ufs.ziploc.devolucao.provisorio.ClienteApi;
-import br.ufs.ziploc.devolucao.provisorio.ContratoApi;
-import br.ufs.ziploc.devolucao.provisorio.ItemContratoPrazo;
-import br.ufs.ziploc.devolucao.provisorio.StatusUnidade;
-import br.ufs.ziploc.devolucao.provisorio.UnidadeApi;
 import br.ufs.ziploc.devolucao.repository.DevolucaoRepository;
+import br.ufs.ziploc.faturamento.api.FaturaApi;
+import br.ufs.ziploc.locacao.api.ContratoApi;
+import br.ufs.ziploc.locacao.api.ContratoNaoEncontradoException;
+import br.ufs.ziploc.locacao.api.ContratoResumo;
+import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -28,8 +31,7 @@ public class DevolucaoService {
 
     private final DevolucaoRepository devolucaoRepository;
     private final ContratoApi contratoApi;
-    private final UnidadeApi unidadeApi;
-    private final ClienteApi clienteApi;
+    private final FaturaApi faturaApi;
     private static final ZoneId FUSO_LOCAL = ZoneId.of("America/Sao_Paulo");
 
     @Transactional 
@@ -43,10 +45,8 @@ public class DevolucaoService {
         LocalDate diaDevolucao = dataDevolucao.atZone(FUSO_LOCAL).toLocalDate();
 
         BigDecimal multaFinal;
-        boolean houveAtraso = false;
 
         if(diaDevolucao.isAfter(itemContrato.dataFimPrevista())){
-            houveAtraso = true;
 
             long diasDeAtraso = ChronoUnit.DAYS.between(itemContrato.dataFimPrevista(), diaDevolucao);
             multaFinal = calcularMultaAtraso(itemContrato, diasDeAtraso);
@@ -55,23 +55,32 @@ public class DevolucaoService {
             multaFinal = BigDecimal.ZERO;
         }
 
+        /*Devolve o contrato inteiro, com valorTotal e a lista de itens */
+        ContratoResumo contrato = contratoApi.buscarContrato(itemContrato.contratoId()).orElseThrow(
+            () -> new ContratoNaoEncontradoException("Contrato "+ itemContrato.contratoId() + " não encontrado")
+        );
+
+        /*Calcula o valor máximo que a multa pode assumir sem ultrapassar o teto, que é o contrato */
+        BigDecimal multaLimitada = contrato.valorTotal()
+        .subtract(somarMultasRegistradas(contrato)).min(multaFinal).max(BigDecimal.ZERO);
+
         Devolucao devolucao = Devolucao.builder()
         .locadoraId(locadoraId)
         .itemContratoId(request.itemContratoId())
         .usuarioId(usuarioId)
         .dataDevolucaoReal(dataDevolucao)
-        .multaAtraso(multaFinal)
+        .multaAtraso(multaLimitada)
         .observacoes(request.observacoes())
         .build();
 
         devolucaoRepository.save(devolucao);
 
-        contratoApi.registrarDevolucao(request.itemContratoId(), dataDevolucao);
-        
-        unidadeApi.alterarStatus(itemContrato.unidadeId(), StatusUnidade.EM_VISTORIA);
-        
-        if(houveAtraso){
-            clienteApi.registrarAtraso(request.clienteId(), itemContrato.contratoId());
+        if(contratoApi.contarItensPendentes(itemContrato.contratoId()) == 0){
+            
+            BigDecimal somaDasMultas = somarMultasRegistradas(contrato);
+            
+            faturaApi.gerarFatura(itemContrato.contratoId(),
+             locadoraId, usuarioId, somaDasMultas);
         }
 
         return DevolucaoDto.recebimentoDevolucao(devolucao);
@@ -83,15 +92,25 @@ public class DevolucaoService {
             return BigDecimal.ZERO;
         }
         
-        BigDecimal percentualMulta = itemContrato.percentualMultaAtraso()
+        BigDecimal percentualMulta = itemContrato.percentualMulta()
         .divide(BigDecimal.valueOf(100), MathContext.DECIMAL128);
 
         BigDecimal multa = BigDecimal.valueOf(diasAtraso)
-        .multiply(itemContrato.valorDiaria())
-        .multiply(percentualMulta)
-        .min(itemContrato.valorLocacao());
+        .multiply(itemContrato.valorDiariaContratada())
+        .multiply(percentualMulta);
         
         return multa.setScale(2,RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal somarMultasRegistradas(ContratoResumo contratoResumo){
+        
+        List<Long> ids = contratoResumo.itens().stream().map(ItemContratoPrazo::id).toList();
+
+        List<Devolucao> devolucoes = devolucaoRepository.findByItemContratoIdIn(ids);
+
+        return devolucoes.stream()
+            .map(Devolucao::getMultaAtraso)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
 }
