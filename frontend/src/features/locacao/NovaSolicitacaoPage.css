@@ -3,7 +3,6 @@
   padding: clamp(1rem, 4vw, 3rem);
   background: var(--fundo);
   color: var(--texto);
-  color-scheme: light;
 }
 
 .solicitacao h1 {

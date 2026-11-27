@@ -1,20 +1,22 @@
 ﻿:root {
   --roxo: #ae00ff;
   --roxo-escuro: #7300ab;
+  --roxo-claro: #df9cff;
   --preto: #000000;
-  --superficie: #ffffff;
-  --fundo: #f7f5fa;
-  --fundo-tabela: #f2ebf8;
-  --borda: #e5dcec;
-  --borda-campo: #a096a9;
-  --texto: #201725;
-  --texto-suave: #605469;
-  --erro: #a12d24;
+  --branco: #ffffff;
+  --superficie: #110e15;
+  --fundo: var(--preto);
+  --fundo-tabela: #201529;
+  --borda: #392b43;
+  --borda-campo: #81718d;
+  --texto: #f7f2fa;
+  --texto-suave: #c0b4c9;
+  --erro: #ff9b9b;
   --fonte-marca: Goldman, system-ui, sans-serif;
   font: 1rem/1.5 system-ui, sans-serif;
   color: var(--texto);
   background: var(--fundo);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
@@ -30,7 +32,7 @@ body {
 .ziploc__lateral {
   padding: 1.5rem 1rem;
   background: var(--preto);
-  color: var(--superficie);
+  color: var(--branco);
   border-inline-end: 3px solid var(--roxo);
 }
 
@@ -80,7 +82,12 @@ h2 {
 }
 
 a {
-  color: var(--roxo-escuro);
+  color: var(--roxo-claro);
+}
+
+:where(input, select, textarea) {
+  background: var(--preto);
+  color: var(--texto);
 }
 
 button {
@@ -89,7 +96,7 @@ button {
   border: 1px solid var(--roxo-escuro);
   border-radius: 0.5rem;
   background: var(--roxo-escuro);
-  color: var(--superficie);
+  color: var(--branco);
   font: inherit;
   cursor: pointer;
 }

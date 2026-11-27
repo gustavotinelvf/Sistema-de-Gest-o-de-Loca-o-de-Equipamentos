@@ -47,7 +47,6 @@
   flex: 1;
   background: var(--fundo);
   color: var(--texto);
-  color-scheme: light;
 }
 
 .catalogo h1,
@@ -143,7 +142,7 @@
   padding: clamp(1.25rem, 4vw, 2.5rem);
   border-radius: 1rem;
   background: var(--preto);
-  color: var(--superficie);
+  color: var(--branco);
 }
 
 .catalogo__destaque::before {
@@ -185,7 +184,7 @@
 }
 
 .catalogo__lista-modelos {
-  box-shadow: 0 8px 24px #2813350d;
+  box-shadow: 0 8px 28px #ae00ff0d;
 }
 
 .catalogo__lista-modelos .catalogo__filtros {
@@ -202,7 +201,7 @@
 .catalogo__lista-modelos :is(.catalogo__limpar, tbody button) {
   border-color: var(--borda);
   background: var(--superficie);
-  color: var(--roxo-escuro);
+  color: var(--roxo-claro);
 }
 
 .catalogo__lista-modelos :is(.catalogo__limpar, tbody button):hover {
@@ -238,7 +237,7 @@
 
 .catalogo__situacao[data-ativo='true'] {
   background: var(--fundo-tabela);
-  color: var(--roxo-escuro);
+  color: var(--roxo-claro);
 }
 
 @media (max-width: 36rem) {
