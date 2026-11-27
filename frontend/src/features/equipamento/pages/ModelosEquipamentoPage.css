@@ -90,3 +90,39 @@
   color: #526762;
   text-align: center;
 }
+.catalogo__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.catalogo__cadastro {
+  margin-bottom: 1rem;
+}
+
+.catalogo__formulario {
+  display: grid;
+  gap: 1rem;
+  max-width: 36rem;
+}
+
+.catalogo__formulario label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.catalogo__formulario :is(input, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #869e98;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.catalogo__formulario [role='alert'] {
+  color: #a12d24;
+}

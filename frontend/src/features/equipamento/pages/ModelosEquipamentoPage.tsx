@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NovoModeloForm } from '../components/NovoModeloForm'
 import { TabelaModelosEquipamento } from '../components/TabelaModelosEquipamento'
 import type { ModeloEquipamento } from '../types'
 import './ModelosEquipamentoPage.css'
@@ -9,6 +10,7 @@ const categorias: string[] = []
 export function ModelosEquipamentoPage() {
   const [categoria, setCategoria] = useState('')
   const [situacao, setSituacao] = useState('todos')
+  const [formularioAberto, setFormularioAberto] = useState(false)
 
   const modelosFiltrados = modelos.filter((modelo) => {
     const correspondeCategoria = categoria === '' || modelo.categoria === categoria
@@ -22,7 +24,17 @@ export function ModelosEquipamentoPage() {
     <main className="catalogo">
       <header className="catalogo__cabecalho">
         <h1>Catálogo de equipamentos</h1>
+        <button type="button" aria-expanded={formularioAberto} onClick={() => setFormularioAberto(!formularioAberto)}>
+          {formularioAberto ? 'Fechar cadastro' : 'Novo modelo'}
+        </button>
       </header>
+
+      {formularioAberto && (
+        <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-cadastro">
+          <h2 id="titulo-cadastro">Novo modelo</h2>
+          <NovoModeloForm />
+        </section>
+      )}
 
       <section className="catalogo__painel" aria-labelledby="titulo-modelos">
         <h2 id="titulo-modelos">Modelos cadastrados</h2>
