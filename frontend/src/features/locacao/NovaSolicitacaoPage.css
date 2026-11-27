@@ -1,0 +1,56 @@
+.solicitacao {
+  flex: 1;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: #f2f5f4;
+  color: #182a28;
+  color-scheme: light;
+}
+
+.solicitacao h1 {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  color: inherit;
+}
+
+.solicitacao form,
+.solicitacao fieldset,
+.solicitacao__item {
+  display: grid;
+  gap: 1rem;
+}
+
+.solicitacao form {
+  max-width: 48rem;
+}
+
+.solicitacao fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #d9e3e0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.solicitacao label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.solicitacao :is(input, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #869e98;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.solicitacao button {
+  justify-self: start;
+}
+
+.solicitacao [role='alert'] {
+  color: #a12d24;
+}
