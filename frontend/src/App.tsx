@@ -32,34 +32,36 @@ export function ModelosEquipamentoPage() {
 
   return (
     <main className="catalogo">
-      <h1>Catálogo de equipamentos</h1>
+      <header className="catalogo__cabecalho">
+        <h1>Catálogo de equipamentos</h1>
+      </header>
 
-      <div className="catalogo__filtros">
-        <label>
-          Categoria
-          <select value={categoria} onChange={(event) => setCategoria(event.target.value)}>
-            <option value="">Todas</option>
-            {categorias.map((opcao) => (
-              <option key={opcao} value={opcao}>
-                {opcao}
-              </option>
-            ))}
-          </select>
-        </label>
+      <section className="catalogo__painel" aria-labelledby="titulo-modelos">
+        <h2 id="titulo-modelos">Modelos cadastrados</h2>
 
-        <label>
-          Situação
-          <select value={situacao} onChange={(event) => setSituacao(event.target.value)}>
-            <option value="todos">Todos</option>
-            <option value="ativos">Ativos</option>
-            <option value="inativos">Inativos</option>
-          </select>
-        </label>
-      </div>
+        <div className="catalogo__filtros">
+          <label>
+            Categoria
+            <select value={categoria} onChange={(event) => setCategoria(event.target.value)}>
+              <option value="">Todas</option>
+              {categorias.map((opcao) => (
+                <option key={opcao} value={opcao}>
+                  {opcao}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      {modelosFiltrados.length === 0 ? (
-        <p role="status">Nenhum modelo encontrado para os filtros selecionados.</p>
-      ) : (
+          <label>
+            Situação
+            <select value={situacao} onChange={(event) => setSituacao(event.target.value)}>
+              <option value="todos">Todos</option>
+              <option value="ativos">Ativos</option>
+              <option value="inativos">Inativos</option>
+            </select>
+          </label>
+        </div>
+
         <div className="catalogo__tabela">
           <table aria-label="Modelos de equipamento">
             <thead>
@@ -71,18 +73,26 @@ export function ModelosEquipamentoPage() {
               </tr>
             </thead>
             <tbody>
-              {modelosFiltrados.map((modelo) => (
-                <tr key={modelo.id}>
-                  <th scope="row">{modelo.nome}</th>
-                  <td>{modelo.categoria}</td>
-                  <td>{moeda.format(modelo.valorDiariaBase)}</td>
-                  <td>{modelo.ativo ? 'Ativo' : 'Inativo'}</td>
+              {modelosFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="catalogo__vazio">
+                    Os modelos cadastrados serão exibidos aqui.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                modelosFiltrados.map((modelo) => (
+                  <tr key={modelo.id}>
+                    <th scope="row">{modelo.nome}</th>
+                    <td>{modelo.categoria}</td>
+                    <td>{moeda.format(modelo.valorDiariaBase)}</td>
+                    <td>{modelo.ativo ? 'Ativo' : 'Inativo'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}    
+      </section>
     </main>
   )
 }

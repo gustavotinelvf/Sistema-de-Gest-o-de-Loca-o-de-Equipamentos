@@ -1,6 +1,4 @@
-.ca.catalogo {
-  max-width: 72rem;
-  margin-inline: auto;
+.catalogo {
   padding: clamp(1rem, 4vw, 3rem);
   text-align: left;
 }
@@ -41,4 +39,54 @@
   padding: 0.75rem;
   border-bottom: 1px solid currentColor;
   text-align: left;
+}
+
+.catalogo {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100svh;
+  background: #f2f5f4;
+  color: #182a28;
+  color-scheme: light;
+}
+
+.catalogo h1,
+.catalogo h2 {
+  color: inherit;
+}
+
+.catalogo__painel {
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid #d9e3e0;
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.catalogo__filtros select {
+  min-height: 2.5rem;
+  border: 1px solid #869e98;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #182a28;
+}
+
+.catalogo__filtros select:focus-visible {
+  outline: 2px solid #00695c;
+  outline-offset: 2px;
+}
+
+.catalogo thead {
+  background: #eaf1ef;
+}
+
+.catalogo th,
+.catalogo td {
+  border-color: #d9e3e0;
+}
+
+.catalogo td.catalogo__vazio {
+  padding-block: 2rem;
+  color: #526762;
+  text-align: center;
 }
