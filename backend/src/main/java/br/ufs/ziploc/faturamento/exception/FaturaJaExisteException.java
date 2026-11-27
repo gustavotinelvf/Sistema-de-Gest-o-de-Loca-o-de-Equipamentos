@@ -1,8 +1,10 @@
 package br.ufs.ziploc.faturamento.exception;
 
-public class FaturaJaExisteException extends RuntimeException {
+import br.ufs.ziploc.shared.exception.ConflitoException;
 
-     public FaturaJaExisteException(Long contratoId) {
+public class FaturaJaExisteException extends ConflitoException {
+
+    public FaturaJaExisteException(Long contratoId) {
         super("Já existe fatura para o contrato " + contratoId + ".");
     }
 }

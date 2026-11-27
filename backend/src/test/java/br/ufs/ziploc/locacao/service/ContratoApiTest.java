@@ -9,6 +9,7 @@ import br.ufs.ziploc.locacao.domain.Solicitacao;
 import br.ufs.ziploc.locacao.domain.StatusContrato;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
 import br.ufs.ziploc.locacao.repository.ItemContratoRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,20 +20,25 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ContratoApiTest {
     private static final LocalDate INICIO = LocalDate.of(2026, 12, 1);
     private static final LocalDate FIM = LocalDate.of(2026, 12, 10);
+    private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
     @Mock
     private ContratoRepository contratoRepository;
     @Mock
     private ItemContratoRepository itemContratoRepository;
+    @Mock
+    private EntityManager entityManager;
     @InjectMocks
     private ContratoService service;
     private Contrato contrato;
@@ -40,11 +46,14 @@ class ContratoApiTest {
 
     @BeforeEach
     void preparar() {
-        Solicitacao solicitacao = new Solicitacao(1L, 2L, INICIO, FIM);
+        Solicitacao solicitacao = new Solicitacao(1L, 1L, 2L, INICIO, FIM);
+        solicitacao.adicionarItem(30L, 1, new BigDecimal("100.00"));
+        ReflectionTestUtils.setField(solicitacao, "id", 6L);
+        ReflectionTestUtils.setField(solicitacao.getItens().get(0), "id", 8L);
         solicitacao.aprovar(3L);
-        contrato = new Contrato(solicitacao, new BigDecimal("1000.00"), new BigDecimal("2.00"));
+        contrato = new Contrato(solicitacao, new BigDecimal("1000.00"), new BigDecimal("2.00"), "Devolver os equipamentos no prazo contratado.");
         ReflectionTestUtils.setField(contrato, "id", 7L);
-        contrato.adicionarItem(10L, new BigDecimal("100.00"));
+        contrato.adicionarItem(10L, 30L, new BigDecimal("100.00"));
         item = contrato.getItens().get(0);
         ReflectionTestUtils.setField(item, "id", 50L);
     }
@@ -70,18 +79,21 @@ class ContratoApiTest {
     }
 
     @Test
-    void registraDevolucaoNoItem() {
-        contrato.ativar();
-        item.registrarInicioReal(INICIO);
+    void buscaItemComDevolucaoRegistrada() {
+        contrato.ativar(INICIO.atStartOfDay(FUSO).toInstant(), 3L);
+        ReflectionTestUtils.setField(item, "dataDevolucaoReal", FIM);
         when(itemContratoRepository.findById(50L)).thenReturn(Optional.of(item));
-        service.registrarDevolucao(50L, FIM);
-        assertThat(item.getDataDevolucaoReal()).isEqualTo(FIM);
+
+        ItemContratoPrazo resumo = service.buscarItemContrato(50L).orElseThrow();
+
+        assertThat(resumo.dataInicioReal()).isEqualTo(INICIO);
+        assertThat(resumo.dataDevolucaoReal()).isEqualTo(FIM);
     }
 
     @Test
-    void falhaQuandoItemNaoExiste() {
+    void retornaVazioQuandoItemNaoExiste() {
         when(itemContratoRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> service.registrarDevolucao(99L, FIM)).isInstanceOf(ContratoNaoEncontradoException.class);
+        assertThat(service.buscarItemContrato(99L)).isEmpty();
     }
 
     @Test
@@ -93,17 +105,28 @@ class ContratoApiTest {
 
     @Test
     void finalizaContrato() {
-        contrato.ativar();
-        item.registrarInicioReal(INICIO);
-        contrato.registrarDevolucao(50L, FIM);
-        when(contratoRepository.findById(7L)).thenReturn(Optional.of(contrato));
+        contrato.ativar(INICIO.atStartOfDay(FUSO).toInstant(), 3L);
+        ReflectionTestUtils.setField(item, "dataDevolucaoReal", FIM);
+        when(contratoRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(contrato));
         service.finalizarContrato(7L);
+        verify(contratoRepository).findByIdForUpdate(7L);
+        verify(entityManager).refresh(contrato);
+        verify(contratoRepository).flush();
         assertThat(contrato.getStatus()).isEqualTo(StatusContrato.FINALIZADO);
     }
 
     @Test
     void falhaAoFinalizarContratoInexistente() {
-        when(contratoRepository.findById(8L)).thenReturn(Optional.empty());
+        when(contratoRepository.findByIdForUpdate(8L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.finalizarContrato(8L)).isInstanceOf(ContratoNaoEncontradoException.class);
+    }
+
+    @Test
+    void recusaFinalizacaoComItensPendentes() {
+        contrato.ativar(INICIO.atStartOfDay(FUSO).toInstant(), 3L);
+        when(contratoRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(contrato));
+
+        assertThatThrownBy(() -> service.finalizarContrato(7L)).isInstanceOf(IllegalStateException.class);
+        assertThat(contrato.getStatus()).isEqualTo(StatusContrato.ATIVO);
     }
 }

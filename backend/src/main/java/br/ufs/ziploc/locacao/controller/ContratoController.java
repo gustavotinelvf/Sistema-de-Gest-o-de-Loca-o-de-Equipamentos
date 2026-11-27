@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,8 +27,8 @@ public class ContratoController {
 
     @PostMapping("/{id}/retirada")
     @PreAuthorize("hasAnyRole('ATENDENTE', 'GERENTE')")
-    public ResponseEntity<ContratoResponse> retirar(@PathVariable Long id, @RequestBody(required = false) RetiradaRequest request) {
-        return ResponseEntity.ok(service.retirar(id, request == null ? null : request.dataRetirada()));
+    public ResponseEntity<ContratoResponse> retirar(@PathVariable Long id, @RequestBody(required = false) RetiradaRequest request, Authentication autenticacao) {
+        return ResponseEntity.ok(service.retirar(id, request == null ? null : request.dataRetirada(), Long.valueOf(autenticacao.getName())));
     }
 
     @PostMapping("/{id}/cancelamento")

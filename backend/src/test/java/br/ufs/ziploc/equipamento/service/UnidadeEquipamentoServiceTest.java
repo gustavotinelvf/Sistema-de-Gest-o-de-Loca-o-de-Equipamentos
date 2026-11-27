@@ -34,7 +34,15 @@ class UnidadeEquipamentoServiceTest {
     @InjectMocks UnidadeEquipamentoService service;
 
     private ModeloEquipamento modelo() {
-        return new ModeloEquipamento("Betoneira 400L", "Construção", null, new BigDecimal("120.00"), 1, 5);
+        return new ModeloEquipamento(
+                1L,
+                "Betoneira 400L",
+                "Construção",
+                "Betoneira de 400 litros",
+                new BigDecimal("120.00"),
+                1,
+                5
+        );
     }
 
     @Test
@@ -85,7 +93,7 @@ class UnidadeEquipamentoServiceTest {
     @Test
     void alterarSerieParaUmaJaUsadaPorOutraUnidadeDaConflito() {
         UnidadeEquipamento u = new UnidadeEquipamento(modelo(), "SN-001");
-        when(unidades.findById(7L)).thenReturn(Optional.of(u));
+        when(unidades.findByIdForUpdate(7L)).thenReturn(Optional.of(u));
         when(unidades.existsByNumeroSerieIgnoreCaseAndIdNot("SN-002", 7L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.alterarNumeroSerie(7L, "SN-002")).isInstanceOf(ConflitoException.class);
@@ -96,7 +104,7 @@ class UnidadeEquipamentoServiceTest {
     void naoInativaUnidadeLocada() {
         UnidadeEquipamento u = new UnidadeEquipamento(modelo(), "SN-001");
         u.locar();
-        when(unidades.findById(7L)).thenReturn(Optional.of(u));
+        when(unidades.findByIdForUpdate(7L)).thenReturn(Optional.of(u));
 
         assertThatThrownBy(() -> service.inativar(7L)).isInstanceOf(IllegalStateException.class);
         assertThat(u.isAtivo()).isTrue();
@@ -108,7 +116,7 @@ class UnidadeEquipamentoServiceTest {
         UnidadeEquipamento u = new UnidadeEquipamento(m, "SN-001");
         u.inativar();
         m.inativar();
-        when(unidades.findById(7L)).thenReturn(Optional.of(u));
+        when(unidades.findByIdForUpdate(7L)).thenReturn(Optional.of(u));
 
         assertThatThrownBy(() -> service.reativar(7L)).isInstanceOf(IllegalStateException.class);
         assertThat(u.isAtivo()).isFalse();

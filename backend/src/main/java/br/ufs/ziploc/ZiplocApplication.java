@@ -4,9 +4,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class zipLocApplication {
+public class ZiplocApplication {
     public static void main(String[] args) {
-        SpringApplication.run(zipLocApplication.class, args);
+        SpringApplication.run(ZiplocApplication.class, args);
     }
 }
 

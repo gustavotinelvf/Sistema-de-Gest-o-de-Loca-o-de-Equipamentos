@@ -3,6 +3,8 @@ package br.ufs.ziploc.acesso.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -13,8 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Configuração global da locadora: existe uma única linha (id = 1).
- * O id NÃO é gerado: o banco tem CHECK (id = 1) e DEFAULT 1.
+ * Configuração da locadora. No schema do Michael o id é gerado (identity) e outras
+ * tabelas apontam para ela por locadora_id; o sistema usa uma só (a primeira).
  */
 @Entity
 @Table(name = "locadora")
@@ -22,11 +24,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Locadora {
 
-    public static final long ID_UNICO = 1L;
-
     @Id
-    @Column(name = "id")
-    private Long id = ID_UNICO;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "razao_social", nullable = false, length = 200)
     private String razaoSocial;
@@ -37,10 +37,11 @@ public class Locadora {
     @Embedded
     private EnderecoLocadora endereco;
 
-    @Column(name = "raio_entrega_km", nullable = false, precision = 5, scale = 2)
+    @Column(name = "raio_entrega_km", nullable = false, precision = 8, scale = 2)
     private BigDecimal raioEntregaKm;
 
-    @Column(name = "percentual_multa_padrao", nullable = false, precision = 5, scale = 2)
+    // No banco a coluna se chama percentual_multa_atraso; no código seguimos o nome do DTO.
+    @Column(name = "percentual_multa_atraso", precision = 5, scale = 2)
     private BigDecimal percentualMultaPadrao;
 
     @Column(name = "data_cadastro", nullable = false, updatable = false)
@@ -51,8 +52,9 @@ public class Locadora {
         if (raioEntregaKm == null || raioEntregaKm.signum() <= 0) {
             throw new IllegalArgumentException("O raio de entrega deve ser maior que zero");
         }
-        if (percentualMultaPadrao == null || percentualMultaPadrao.signum() < 0) {
-            throw new IllegalArgumentException("O percentual de multa não pode ser negativo");
+        if (percentualMultaPadrao == null || percentualMultaPadrao.signum() < 0
+                || percentualMultaPadrao.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("O percentual de multa deve estar entre 0 e 100");
         }
         this.razaoSocial = razaoSocial;
         this.cnpj = cnpj;

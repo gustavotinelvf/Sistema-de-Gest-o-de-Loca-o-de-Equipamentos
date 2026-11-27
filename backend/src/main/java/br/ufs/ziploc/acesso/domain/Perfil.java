@@ -1,8 +1,7 @@
 package br.ufs.ziploc.acesso.domain;
 
 /**
- * Perfis de acesso 
- * Gravado como texto na coluna "perfil" (nunca como número).
+ * Perfis de acesso. Gravado como texto na coluna "perfil" (nunca como número).
  */
 public enum Perfil {
     GERENTE(true),

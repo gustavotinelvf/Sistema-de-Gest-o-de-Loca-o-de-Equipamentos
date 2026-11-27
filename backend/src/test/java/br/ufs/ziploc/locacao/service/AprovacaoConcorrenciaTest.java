@@ -2,7 +2,6 @@ package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,10 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AprovacaoConcorrenciaTest {
     private static final LocalDate INICIO = LocalDate.now().plusDays(10);
     private static final LocalDate FIM = INICIO.plusDays(9);
+    private static final String CONDICOES = "Devolver os equipamentos no prazo contratado.";
     @Autowired
     private SolicitacaoService service;
     @Autowired
     private JdbcTemplate jdbc;
+    private long locadora;
     private long cliente;
     private long gerente;
     private long modelo;
@@ -36,22 +38,12 @@ class AprovacaoConcorrenciaTest {
 
     @BeforeEach
     void preparar() {
-        cliente = jdbc.queryForObject("INSERT INTO cliente (razao_social, cnpj, contato_nome, email, telefone, cep, logradouro, numero, bairro, cidade, uf) VALUES ('Construtora Concorrente', '99888777000247', 'Ana', 'concorrencia@teste.com', '79999999999', '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE') RETURNING id", Long.class);
-        gerente = jdbc.queryForObject("INSERT INTO usuario (nome, email, senha_hash, perfil, cpf) VALUES ('Gerente Teste', 'gerente.concorrencia@teste.com', 'x', 'GERENTE', '99988877766') RETURNING id", Long.class);
-        modelo = jdbc.queryForObject("INSERT INTO modelo_equipamento (nome, categoria, valor_diaria_base) VALUES ('Andaime concorrente', 'Andaime', 50) RETURNING id", Long.class);
-        unidade = jdbc.queryForObject("INSERT INTO unidade_equipamento (modelo_id, numero_serie) VALUES (?, 'CONC-1') RETURNING id", Long.class, modelo);
-    }
-
-    @AfterEach
-    void limpar() {
-        jdbc.update("DELETE FROM item_contrato WHERE unidade_id = ?", unidade);
-        jdbc.update("DELETE FROM contrato WHERE cliente_id = ?", cliente);
-        jdbc.update("DELETE FROM item_solicitacao WHERE modelo_id = ?", modelo);
-        jdbc.update("DELETE FROM solicitacao WHERE cliente_id = ?", cliente);
-        jdbc.update("DELETE FROM unidade_equipamento WHERE id = ?", unidade);
-        jdbc.update("DELETE FROM modelo_equipamento WHERE id = ?", modelo);
-        jdbc.update("DELETE FROM usuario WHERE id = ?", gerente);
-        jdbc.update("DELETE FROM cliente WHERE id = ?", cliente);
+        String sufixo = UUID.randomUUID().toString();
+        locadora = jdbc.queryForObject("INSERT INTO locadora (razao_social, cnpj, cep_sede, logradouro_sede, numero_sede, bairro_sede, cidade_sede, uf_sede, raio_entrega_km, percentual_multa_atraso) VALUES ('Locadora Concorrencia', ?, '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE', 100, 10) RETURNING id", Long.class, cnpj());
+        cliente = jdbc.queryForObject("INSERT INTO cliente (locadora_id, razao_social, cnpj, representante_nome, email, telefone, cep, logradouro, numero, bairro, cidade, uf) VALUES (?, 'Construtora Concorrente', ?, 'Ana', ?, '79999999999', '49000000', 'Rua A', '1', 'Centro', 'Aracaju', 'SE') RETURNING id", Long.class, locadora, cnpj(), "cliente." + sufixo + "@teste.com");
+        gerente = jdbc.queryForObject("INSERT INTO usuario (locadora_id, nome, email, cpf, senha_hash, perfil, status, data_ativacao) VALUES (?, 'Gerente Teste', ?, ?, ?, 'GERENTE', 'ATIVO', now()) RETURNING id", Long.class, locadora, "gerente." + sufixo + "@teste.com", cpf(), "$2a$10$" + "A".repeat(53));
+        modelo = jdbc.queryForObject("INSERT INTO modelo_equipamento (locadora_id, nome, categoria, especificacoes, valor_diaria) VALUES (?, 'Andaime concorrente', 'Andaime', 'Equipamento de teste', 50) RETURNING id", Long.class, locadora);
+        unidade = jdbc.queryForObject("INSERT INTO unidade_equipamento (locadora_id, modelo_id, numero_serie) VALUES (?, ?, 'CONC-1') RETURNING id", Long.class, locadora, modelo);
     }
 
     @Test
@@ -63,8 +55,9 @@ class AprovacaoConcorrenciaTest {
         assertThat(contar("PENDENTE")).isEqualTo(1);
         ContratoDTO contrato = (ContratoDTO) resultados.stream().filter(ContratoDTO.class::isInstance).findFirst().orElseThrow();
         assertThat(contrato.valorTotal()).isEqualByComparingTo("500.00");
-        assertThat(jdbc.queryForObject("SELECT percentual_multa FROM contrato WHERE id = ?", BigDecimal.class, contrato.id())).isEqualByComparingTo("10");
+        assertThat(jdbc.queryForObject("SELECT percentual_multa_atraso FROM contrato WHERE id = ?", BigDecimal.class, contrato.id())).isEqualByComparingTo("10");
         assertThat(jdbc.queryForObject("SELECT unidade_id FROM item_contrato WHERE contrato_id = ?", Long.class, contrato.id())).isEqualTo(unidade);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM item_contrato WHERE unidade_id = ?", Integer.class, unidade)).isEqualTo(1);
     }
 
     @Test
@@ -73,6 +66,8 @@ class AprovacaoConcorrenciaTest {
         List<Object> resultados = aprovarJuntas(id, id);
         assertThat(resultados).filteredOn(ContratoDTO.class::isInstance).hasSize(1);
         assertThat(resultados).filteredOn(IllegalStateException.class::isInstance).hasSize(1);
+        assertThat(contar("APROVADA")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM contrato WHERE solicitacao_id = ?", Integer.class, id)).isEqualTo(1);
     }
 
     private List<Object> aprovarJuntas(long... ids) throws Exception {
@@ -83,7 +78,7 @@ class AprovacaoConcorrenciaTest {
             for (long id : ids) tarefas.add(executor.submit(() -> {
                 largada.await();
                 try {
-                    return service.aprovar(id, gerente, BigDecimal.TEN);
+                    return service.aprovar(id, gerente, BigDecimal.TEN, CONDICOES);
                 } catch (RuntimeException e) {
                     return e;
                 }
@@ -98,12 +93,20 @@ class AprovacaoConcorrenciaTest {
     }
 
     private long solicitacao() {
-        long id = jdbc.queryForObject("INSERT INTO solicitacao (cliente_id, registrado_por_id, data_inicio_desejada, data_fim_desejada) VALUES (?, ?, ?, ?) RETURNING id", Long.class, cliente, gerente, INICIO, FIM);
-        jdbc.update("INSERT INTO item_solicitacao (solicitacao_id, modelo_id, quantidade) VALUES (?, ?, 1)", id, modelo);
+        long id = jdbc.queryForObject("INSERT INTO solicitacao (locadora_id, cliente_id, solicitante_id, data_inicio_prevista, data_fim_prevista, valor_estimado) VALUES (?, ?, ?, ?, ?, 500) RETURNING id", Long.class, locadora, cliente, gerente, INICIO, FIM);
+        jdbc.update("INSERT INTO item_solicitacao (locadora_id, solicitacao_id, modelo_id, quantidade, valor_unitario) VALUES (?, ?, ?, 1, 50)", locadora, id, modelo);
         return id;
     }
 
     private int contar(String status) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM solicitacao WHERE cliente_id = ? AND status = ?", Integer.class, cliente, status);
+    }
+
+    private static String cnpj() {
+        return String.format("%014d", Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 100_000_000_000_000L));
+    }
+
+    private static String cpf() {
+        return String.format("%011d", Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 100_000_000_000L));
     }
 }

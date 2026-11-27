@@ -16,24 +16,27 @@ import java.util.List;
 public class DisponibilidadeRepository {
     private static final String UNIDADE_LIVRE = """
             u.ativo AND m.ativo
-            AND u.status <> 'EM_MANUTENCAO'
-            AND (u.status <> 'EM_VISTORIA' OR :inicio > CURRENT_DATE + 2)
-            AND NOT EXISTS (SELECT 1 FROM item_contrato ic WHERE ic.unidade_id = u.id
-                AND ic.data_inicio_prevista <= :fim AND ic.data_fim_prevista >= :inicio)
-            AND NOT EXISTS (SELECT 1 FROM item_contrato ic WHERE ic.unidade_id = u.id
-                AND ic.data_inicio_real IS NOT NULL AND ic.data_devolucao_real IS NULL AND ic.data_fim_prevista < CURRENT_DATE)
+            AND u.status = 'DISPONIVEL'
+            AND NOT EXISTS (
+                SELECT 1 FROM item_contrato ic
+                WHERE ic.unidade_id = u.id
+                AND ic.status_contrato IN ('PLANEJADO', 'ATIVO')
+                AND ic.data_inicio_prevista <= :fim
+                AND ic.data_fim_prevista >= :inicio
+            )
             """;
     private final NamedParameterJdbcTemplate jdbc;
 
     public List<DisponibilidadeDTO> contarLivresPorModelo(Periodo periodo, String categoria) {
         String sql = """
-                SELECT m.id, m.nome, m.categoria, m.valor_diaria_base, COUNT(u.id) AS quantidade
+                SELECT m.id, m.nome, m.categoria, m.valor_diaria, COUNT(u.id) AS quantidade
                 FROM modelo_equipamento m JOIN unidade_equipamento u ON u.modelo_id = m.id
+                    AND u.locadora_id = m.locadora_id
                 WHERE (CAST(:categoria AS VARCHAR) IS NULL OR m.categoria = :categoria) AND\s""" + UNIDADE_LIVRE + """
-                GROUP BY m.id, m.nome, m.categoria, m.valor_diaria_base
+                GROUP BY m.id, m.nome, m.categoria, m.valor_diaria
                 ORDER BY m.nome, m.id
                 """;
-        return jdbc.query(sql, parametros(periodo).addValue("categoria", categoria), (rs, i) -> new DisponibilidadeDTO(rs.getLong("id"), rs.getString("nome"), rs.getString("categoria"), rs.getBigDecimal("valor_diaria_base"), rs.getInt("quantidade")));
+        return jdbc.query(sql, parametros(periodo).addValue("categoria", categoria), (rs, i) -> new DisponibilidadeDTO(rs.getLong("id"), rs.getString("nome"), rs.getString("categoria"), rs.getBigDecimal("valor_diaria"), rs.getInt("quantidade")));
     }
 
     public void travarUnidadesDosModelos(Collection<Long> modeloIds) {
@@ -42,12 +45,13 @@ public class DisponibilidadeRepository {
 
     public List<UnidadeDTO> buscarUnidadesLivres(Collection<Long> modeloIds, Periodo periodo) {
         String sql = """
-                SELECT u.id, u.modelo_id, m.valor_diaria_base
+                SELECT u.id, u.modelo_id, m.valor_diaria
                 FROM unidade_equipamento u JOIN modelo_equipamento m ON m.id = u.modelo_id
+                    AND u.locadora_id = m.locadora_id
                 WHERE u.modelo_id IN (:modelos) AND\s""" + UNIDADE_LIVRE + """
                 ORDER BY u.id
                 """;
-        return jdbc.query(sql, parametros(periodo).addValue("modelos", modeloIds), (rs, i) -> new UnidadeDTO(rs.getLong("id"), rs.getLong("modelo_id"), rs.getBigDecimal("valor_diaria_base")));
+        return jdbc.query(sql, parametros(periodo).addValue("modelos", modeloIds), (rs, i) -> new UnidadeDTO(rs.getLong("id"), rs.getLong("modelo_id"), rs.getBigDecimal("valor_diaria")));
     }
 
     private static MapSqlParameterSource parametros(Periodo periodo) {

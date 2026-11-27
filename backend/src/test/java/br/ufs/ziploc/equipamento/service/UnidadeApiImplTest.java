@@ -28,13 +28,13 @@ class UnidadeApiImplTest {
     @InjectMocks UnidadeApiImpl api;
 
     private UnidadeEquipamento unidade() {
-        return new UnidadeEquipamento(new ModeloEquipamento("Betoneira", "Construção", null, new BigDecimal("100.00"), 1, 5), "SN-1");
+        return new UnidadeEquipamento(new ModeloEquipamento(1L, "Betoneira", "Construção", "Betoneira de 400 litros", new BigDecimal("100.00"), 1, 5), "SN-1");
     }
 
     @Test
     void ciclo_locar_vistoria_manutencao_liberar() {
         UnidadeEquipamento u = unidade();
-        when(unidades.findById(1L)).thenReturn(Optional.of(u));
+        when(unidades.findByIdForUpdate(1L)).thenReturn(Optional.of(u));
 
         api.locar(1L);
         assertThat(u.getStatus()).isEqualTo(StatusUnidade.LOCADA);
@@ -49,7 +49,7 @@ class UnidadeApiImplTest {
     @Test
     void transicaoInvalidaLancaIllegalState() {
         UnidadeEquipamento u = unidade();
-        when(unidades.findById(1L)).thenReturn(Optional.of(u));
+        when(unidades.findByIdForUpdate(1L)).thenReturn(Optional.of(u));
 
         // DISPONIVEL -> EM_VISTORIA não é permitido (só LOCADA -> EM_VISTORIA)
         assertThatThrownBy(() -> api.iniciarVistoria(1L)).isInstanceOf(IllegalStateException.class);
@@ -57,7 +57,7 @@ class UnidadeApiImplTest {
 
     @Test
     void unidadeInexistenteLancaNaoEncontrado() {
-        when(unidades.findById(99L)).thenReturn(Optional.empty());
+        when(unidades.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> api.liberar(99L)).isInstanceOf(RecursoNaoEncontradoException.class);
     }

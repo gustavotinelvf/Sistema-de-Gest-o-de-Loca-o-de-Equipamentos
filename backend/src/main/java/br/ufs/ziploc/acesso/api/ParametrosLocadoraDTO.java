@@ -9,6 +9,7 @@ import java.math.BigDecimal;
  * "Sede" para não se confundirem com o endereço do cliente ou da entrega.
  */
 public record ParametrosLocadoraDTO(
+        Long id,
         String razaoSocial,
         String cnpj,
         String cepSede,
@@ -24,6 +25,7 @@ public record ParametrosLocadoraDTO(
     public static ParametrosLocadoraDTO from(Locadora locadora) {
         var e = locadora.getEndereco();
         return new ParametrosLocadoraDTO(
+                locadora.getId(),
                 locadora.getRazaoSocial(),
                 locadora.getCnpj(),
                 e.getCep(),
