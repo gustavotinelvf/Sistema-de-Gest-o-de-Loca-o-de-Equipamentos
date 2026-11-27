@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { TabelaModelosEquipamento } from '../components/TabelaModelosEquipamento'
 import type { ModeloEquipamento } from '../types'
 import './ModelosEquipamentoPage.css'
 
 const modelos: ModeloEquipamento[] = []
 const categorias: string[] = []
-const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function ModelosEquipamentoPage() {
   const [categoria, setCategoria] = useState('')
@@ -50,36 +50,7 @@ export function ModelosEquipamentoPage() {
           </label>
         </div>
 
-        <div className="catalogo__tabela">
-          <table aria-label="Modelos de equipamento">
-            <thead>
-              <tr>
-                <th scope="col">Modelo</th>
-                <th scope="col">Categoria</th>
-                <th scope="col">Valor da diária</th>
-                <th scope="col">Situação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {modelosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="catalogo__vazio">
-                    Os modelos cadastrados serão exibidos aqui.
-                  </td>
-                </tr>
-              ) : (
-                modelosFiltrados.map((modelo) => (
-                  <tr key={modelo.id}>
-                    <th scope="row">{modelo.nome}</th>
-                    <td>{modelo.categoria}</td>
-                    <td>{moeda.format(modelo.valorDiariaBase)}</td>
-                    <td>{modelo.ativo ? 'Ativo' : 'Inativo'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <TabelaModelosEquipamento modelos={modelosFiltrados} />
       </section>
     </main>
   )
