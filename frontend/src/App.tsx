@@ -1,6 +1,7 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
 import { DisponibilidadePage } from './features/disponibilidade/DisponibilidadePage'
 import { ModelosEquipamentoPage } from './features/equipamento/pages/ModelosEquipamentoPage'
+import { DetalheContratoPage } from './features/locacao/DetalheContratoPage'
 import { DetalheSolicitacaoPage } from './features/locacao/DetalheSolicitacaoPage'
 import { FilaSolicitacoesPage } from './features/locacao/FilaSolicitacoesPage'
 import { NovaSolicitacaoPage } from './features/locacao/NovaSolicitacaoPage'
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/solicitacoes" element={<FilaSolicitacoesPage solicitacoes={[]} />} />
         <Route path="/solicitacoes/nova" element={<NovaSolicitacaoPage modelos={[]} />} />
         <Route path="/solicitacoes/:id" element={<DetalheSolicitacaoPage />} />
+        <Route path="/contratos/:id" element={<DetalheContratoPage />} />
       </Routes>
     </BrowserRouter>
   )
