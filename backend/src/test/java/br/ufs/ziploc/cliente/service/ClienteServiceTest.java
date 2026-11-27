@@ -1,12 +1,17 @@
 package br.ufs.ziploc.cliente.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
+import br.ufs.ziploc.acesso.api.ParametrosLocadoraDTO;
 import br.ufs.ziploc.cliente.api.ClienteResumoDTO;
 import br.ufs.ziploc.cliente.domain.Cliente;
 import br.ufs.ziploc.cliente.domain.Contato;
 import br.ufs.ziploc.cliente.domain.Endereco;
 import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
+import br.ufs.ziploc.cliente.dto.ClienteRequestDTO;
+import br.ufs.ziploc.cliente.dto.ClienteResponseDTO;
 import br.ufs.ziploc.cliente.repository.ClienteRepository;
-import jakarta.persistence.EntityNotFoundException;
+import br.ufs.ziploc.shared.exception.ConflitoException;
+import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -22,6 +28,9 @@ class ClienteServiceTest {
 
     @Mock
     private ClienteRepository clienteRepository;
+
+    @Mock
+    private LocadoraApi locadoraApi;
 
     @InjectMocks
     private ClienteService clienteService;
@@ -35,7 +44,64 @@ class ClienteServiceTest {
 
     private Cliente criarClienteValido() {
         Contato contato = new Contato("Maria Silva", "12345678901", "maria@construtora.com", "79999990000");
-        return new Cliente(1L, "Construtora Horizonte Ltda", "12345678000199", contato, criarEnderecoValido());
+        return new Cliente(1L, "Construtora Horizonte Ltda", "11222333000181", contato, criarEnderecoValido());
+    }
+
+    private ClienteRequestDTO criarRequestValido(String cnpj) {
+        return new ClienteRequestDTO(
+                "Construtora Horizonte Ltda",
+                cnpj,
+                "Maria Silva",
+                "12345678901",
+                "maria@construtora.com",
+                "79999990000",
+                "49000-000",
+                "Av. Beira Mar",
+                "100",
+                "Sala 2",
+                "Jabotiana",
+                "Aracaju",
+                "se"
+        );
+    }
+
+    @Test
+    void deveCadastrarClienteNormalizandoCnpjCepEUf_RF001_RD007() {
+        ClienteRequestDTO request = criarRequestValido("11.222.333/0001-81");
+        ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
+        when(parametros.id()).thenReturn(1L);
+        when(locadoraApi.obterParametros()).thenReturn(parametros);
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(false);
+        when(clienteRepository.save(any(Cliente.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteResponseDTO resposta = clienteService.cadastrar(request);
+
+        assertEquals(1L, resposta.locadoraId());
+        assertEquals("Construtora Horizonte Ltda", resposta.razaoSocial());
+        assertEquals("11222333000181", resposta.cnpj());
+        assertEquals("49000000", resposta.cep());
+        assertEquals("SE", resposta.uf());
+        assertEquals(StatusAdimplencia.ADIMPLENTE, resposta.statusAdimplencia());
+        assertTrue(resposta.ativo());
+        verify(clienteRepository).save(any(Cliente.class));
+    }
+
+    @Test
+    void deveRejeitarCadastroComCnpjInvalido_RD007() {
+        ClienteRequestDTO request = criarRequestValido("11.222.333/0001-99");
+
+        assertThrows(IllegalArgumentException.class, () -> clienteService.cadastrar(request));
+        verifyNoInteractions(clienteRepository, locadoraApi);
+    }
+
+    @Test
+    void deveLancarConflitoQuandoCnpjJaExistir_RD008() {
+        ClienteRequestDTO request = criarRequestValido("11222333000181");
+        when(clienteRepository.existsByCnpj("11222333000181")).thenReturn(true);
+
+        assertThrows(ConflitoException.class, () -> clienteService.cadastrar(request));
+        verify(clienteRepository, never()).save(any());
+        verifyNoInteractions(locadoraApi);
     }
 
     @Test
@@ -47,7 +113,7 @@ class ClienteServiceTest {
 
         assertEquals(1L, resumo.locadoraId());
         assertEquals("Construtora Horizonte Ltda", resumo.razaoSocial());
-        assertEquals("12345678000199", resumo.cnpj());
+        assertEquals("11222333000181", resumo.cnpj());
         assertEquals("Maria Silva", resumo.representanteNome());
         assertEquals("12345678901", resumo.representanteCpf());
         assertEquals("maria@construtora.com", resumo.email());
@@ -61,7 +127,7 @@ class ClienteServiceTest {
     @Test
     void deveConsultarResumoSemErroQuandoContatoForNulo() {
         Cliente clienteSemContato = new Cliente(
-                1L, "Construtora Horizonte Ltda", "12345678000199", null, criarEnderecoValido()
+                1L, "Construtora Horizonte Ltda", "11222333000181", null, criarEnderecoValido()
         );
         when(clienteRepository.findById(2L)).thenReturn(Optional.of(clienteSemContato));
 
@@ -78,7 +144,7 @@ class ClienteServiceTest {
     void deveLancarExcecaoAoConsultarResumoDeClienteInexistente() {
         when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> clienteService.consultarResumo(99L));
+        assertThrows(RecursoNaoEncontradoException.class, () -> clienteService.consultarResumo(99L));
     }
 
     @Test
@@ -114,7 +180,7 @@ class ClienteServiceTest {
         when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(
-                EntityNotFoundException.class,
+                RecursoNaoEncontradoException.class,
                 () -> clienteService.alterarStatusAdimplencia(99L, StatusAdimplencia.INADIMPLENTE)
         );
         verify(clienteRepository, never()).save(any());
