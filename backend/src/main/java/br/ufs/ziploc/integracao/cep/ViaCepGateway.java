@@ -46,10 +46,26 @@ public class ViaCepGateway implements CepGateway {
                     .uri("/{cep}/json/", cep)
                     .retrieve()
                     .body(ViaCepResposta.class);
-            if (r == null || Boolean.TRUE.equals(r.erro())) {
+
+            if (r == null) {
+                throw new CepIndisponivelException();
+            }
+
+            if (Boolean.TRUE.equals(r.erro())) {
                 return Optional.empty();
             }
-            return Optional.of(new EnderecoCep(cep, r.logradouro(), r.bairro(), r.localidade(), r.uf()));
+
+            if (r.localidade() == null || r.localidade().isBlank()
+                    || r.uf() == null || !r.uf().matches("[A-Z]{2}")) {
+                throw new CepIndisponivelException();
+            }
+
+            return Optional.of(new EnderecoCep(
+                    cep,
+                    r.logradouro() == null ? "" : r.logradouro(),
+                    r.bairro() == null ? "" : r.bairro(),
+                    r.localidade(),
+                    r.uf()));
         } catch (RestClientException e) {
             throw new CepIndisponivelException(e);
         }

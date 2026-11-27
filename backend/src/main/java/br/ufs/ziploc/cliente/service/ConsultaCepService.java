@@ -13,10 +13,12 @@ public class ConsultaCepService {
     private final CepGateway cepGateway;
 
     public CepResponseDTO consultar(String cep) {
-        String digitos = cep == null ? "" : cep.replaceAll("\\D", "");
-        if (digitos.length() != 8) {
+        if (cep == null || !cep.matches("[0-9]{5}-?[0-9]{3}")) {
             throw new CepInvalidoException();
         }
+
+        String digitos = cep.replace("-", "");
+
         return cepGateway.consultar(digitos)
                 .map(CepResponseDTO::from)
                 .orElseThrow(CepNaoEncontradoException::new);

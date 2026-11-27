@@ -7,8 +7,12 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.net.SocketTimeoutException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -23,6 +27,11 @@ class ViaCepGatewayTest {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://viacep.com.br/ws");
         servidor = MockRestServiceServer.bindTo(builder).build();
         gateway = new ViaCepGateway(builder.build());
+    }
+
+    @AfterEach
+    void verificarRequisicoes() {
+        servidor.verify();
     }
 
     @Test
@@ -54,6 +63,77 @@ class ViaCepGatewayTest {
     void consultar_servicoComErro_lancaCepIndisponivel() {
         servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
                 .andRespond(withServerError());
+
+        assertThrows(CepIndisponivelException.class, () -> gateway.consultar("49010000"));
+    }
+
+    @Test
+    void consultar_respostaVazia_lancaCepIndisponivel() {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertThrows(CepIndisponivelException.class, () -> gateway.consultar("49010000"));
+    }
+
+    @Test
+    void consultar_jsonInvalido_lancaCepIndisponivel() {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(withSuccess("{json-invalido", MediaType.APPLICATION_JSON));
+
+        assertThrows(CepIndisponivelException.class, () -> gateway.consultar("49010000"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{}",
+            "{\"uf\":\"SE\"}",
+            "{\"localidade\":\"Aracaju\"}",
+            "{\"localidade\":\"\",\"uf\":\"SE\"}",
+            "{\"localidade\":\" \",\"uf\":\"SE\"}",
+            "{\"localidade\":\"Aracaju\",\"uf\":\"S\"}",
+            "{\"localidade\":\"Aracaju\",\"uf\":\"123\"}"
+    })
+    void consultar_respostaIncompletaOuInvalida_lancaCepIndisponivel(String resposta) {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(withSuccess(resposta, MediaType.APPLICATION_JSON));
+
+        assertThrows(CepIndisponivelException.class, () -> gateway.consultar("49010000"));
+    }
+
+    @Test
+    void consultar_cepGenericoSemLogradouroEBairro_devolveEndereco() {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(withSuccess("""
+                        {"logradouro":"","bairro":"","localidade":"Aracaju","uf":"SE"}
+                        """, MediaType.APPLICATION_JSON));
+
+        EnderecoCep e = gateway.consultar("49010000").orElseThrow();
+
+        assertEquals("", e.logradouro());
+        assertEquals("", e.bairro());
+        assertEquals("Aracaju", e.cidade());
+        assertEquals("SE", e.uf());
+    }
+
+    @Test
+    void consultar_camposOpcionaisNulos_normalizaParaVazio() {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(withSuccess("""
+                        {"logradouro":null,"bairro":null,"localidade":"Aracaju","uf":"SE"}
+                        """, MediaType.APPLICATION_JSON));
+
+        EnderecoCep e = gateway.consultar("49010000").orElseThrow();
+
+        assertEquals("", e.logradouro());
+        assertEquals("", e.bairro());
+    }
+
+    @Test
+    void consultar_timeout_lancaCepIndisponivel() {
+        servidor.expect(requestTo("https://viacep.com.br/ws/49010000/json/"))
+                .andRespond(request -> {
+                    throw new SocketTimeoutException("Timeout simulado");
+                });
 
         assertThrows(CepIndisponivelException.class, () -> gateway.consultar("49010000"));
     }
