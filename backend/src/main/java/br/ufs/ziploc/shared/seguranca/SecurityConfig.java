@@ -1,5 +1,6 @@
 package br.ufs.ziploc.shared.seguranca;
 
+import br.ufs.ziploc.acesso.api.UsuarioApi;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +35,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filtrosDeSeguranca(HttpSecurity http, JwtService jwtService) throws Exception {
+    SecurityFilterChain filtrosDeSeguranca(HttpSecurity http, JwtService jwtService,
+                                           UsuarioApi usuarioApi) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
@@ -44,10 +46,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/convites/*/aceite").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated())
-                // Sem token ou token inválido: 401 (e não o 403 padrão).
-                .exceptionHandling(e -> e.authenticationEntryPoint(
-                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService),
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, exception) ->
+                                response.setStatus(HttpStatus.FORBIDDEN.value())))
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, usuarioApi),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

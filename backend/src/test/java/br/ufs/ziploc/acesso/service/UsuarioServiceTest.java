@@ -2,6 +2,7 @@ package br.ufs.ziploc.acesso.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -138,6 +139,61 @@ class UsuarioServiceTest {
 
         assertEquals("CPF é obrigatório para o perfil GERENTE (RD016)", erro.getMessage());
         assertEquals(StatusUsuario.INATIVO, gerente.getStatus());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void consultarPerfilAtivo_usuarioAtivo_retornaPerfil() {
+        Usuario ativo = usuario(1L, "Ana");
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(ativo));
+
+        assertEquals(Optional.of("ATENDENTE"), service.consultarPerfilAtivo(1L));
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void consultarPerfilAtivo_usuarioInativo_retornaVazio() {
+        Usuario inativo = usuario(2L, "Bia");
+        inativo.inativar();
+
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(inativo));
+
+        assertTrue(service.consultarPerfilAtivo(2L).isEmpty());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void consultarPerfilAtivo_usuarioPendente_retornaVazio() {
+        Usuario pendente = Usuario.criarPendente(
+                1L, "Caio", "caio@x.com", Perfil.ESTOQUISTA, null);
+
+        ReflectionTestUtils.setField(pendente, "id", 3L);
+
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(pendente));
+
+        assertTrue(service.consultarPerfilAtivo(3L).isEmpty());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void consultarPerfilAtivo_usuarioAnonimizado_retornaVazio() {
+        Usuario anonimizado = usuario(4L, "Usuario Anonimizado");
+
+        anonimizado.inativar();
+        ReflectionTestUtils.setField(anonimizado, "anonimizadoEm", Instant.now());
+        ReflectionTestUtils.setField(anonimizado, "senhaHash", null);
+
+        when(usuarioRepository.findById(4L)).thenReturn(Optional.of(anonimizado));
+
+        assertTrue(service.consultarPerfilAtivo(4L).isEmpty());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void consultarPerfilAtivo_usuarioInexistente_retornaVazio() {
+        when(usuarioRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertTrue(service.consultarPerfilAtivo(9L).isEmpty());
         verify(usuarioRepository, never()).save(any());
     }
 }

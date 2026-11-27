@@ -1,5 +1,6 @@
 package br.ufs.ziploc.locacao.controller;
 
+import br.ufs.ziploc.acesso.api.UsuarioApi;
 import br.ufs.ziploc.disponibilidade.api.IndisponibilidadeException;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
@@ -49,6 +50,8 @@ class SolicitacaoControllerTest {
     private SolicitacaoService solicitacaoService;
     @MockitoBean
     private JwtService jwtService;
+    @MockitoBean
+    private UsuarioApi usuarioApi;
 
     private MockHttpServletRequestBuilder reprovar(Long id, String corpo) {
         return post("/api/solicitacoes/{id}/reprovacao", id).with(csrf()).with(user("5").roles("GERENTE")).contentType(MediaType.APPLICATION_JSON).content(corpo);
