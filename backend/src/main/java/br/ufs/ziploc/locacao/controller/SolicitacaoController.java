@@ -1,5 +1,6 @@
 package br.ufs.ziploc.locacao.controller;
 
+import br.ufs.ziploc.locacao.domain.StatusSolicitacao;
 import br.ufs.ziploc.locacao.dto.AprovacaoRequest;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.JustificativaRequest;
@@ -7,6 +8,7 @@ import br.ufs.ziploc.locacao.dto.RegistrarSolicitacaoRequest;
 import br.ufs.ziploc.locacao.dto.ReprovacaoRequest;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
+import br.ufs.ziploc.locacao.dto.SolicitacaoResumo;
 import br.ufs.ziploc.locacao.service.SolicitacaoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/solicitacoes")
@@ -29,6 +33,12 @@ public class SolicitacaoController {
     public ResponseEntity<SolicitacaoResponse> registrar(@Valid @RequestBody RegistrarSolicitacaoRequest request, Authentication autenticacao) {
         SolicitacaoResponse criada = solicitacaoService.registrar(request, Long.valueOf(autenticacao.getName()));
         return ResponseEntity.created(ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").build(criada.id())).body(criada);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ATENDENTE', 'GERENTE')")
+    public ResponseEntity<List<SolicitacaoResumo>> listar(@RequestParam(required = false) StatusSolicitacao status) {
+        return ResponseEntity.ok(solicitacaoService.listar(status));
     }
 
     @GetMapping("/{id}")

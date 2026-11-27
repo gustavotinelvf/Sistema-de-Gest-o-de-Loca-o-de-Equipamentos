@@ -8,6 +8,7 @@ import br.ufs.ziploc.locacao.domain.Solicitacao;
 import br.ufs.ziploc.locacao.domain.StatusSolicitacao;
 import br.ufs.ziploc.locacao.dto.RegistrarSolicitacaoRequest;
 import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
+import br.ufs.ziploc.locacao.dto.SolicitacaoResumo;
 import br.ufs.ziploc.locacao.repository.SolicitacaoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class SolicitacaoServiceTest {
@@ -121,5 +124,33 @@ class SolicitacaoServiceTest {
 
         assertThatThrownBy(() -> service.cancelar(1L, " ")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.cancelar(2L, "motivo")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void listaFilaDaLocadoraFiltradaPorStatus_RF010() {
+        prepararLocadora();
+        Solicitacao pendente = new Solicitacao(1L, 10L, 20L, HOJE.plusDays(1), HOJE.plusDays(3));
+        pendente.adicionarItem(1L, 2, new BigDecimal("100.00"));
+        when(solicitacoes.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(1L, StatusSolicitacao.PENDENTE)).thenReturn(List.of(pendente));
+
+        List<SolicitacaoResumo> fila = service.listar(StatusSolicitacao.PENDENTE);
+
+        assertThat(fila).singleElement().satisfies(r -> {
+            assertThat(r.clienteId()).isEqualTo(10L);
+            assertThat(r.status()).isEqualTo(StatusSolicitacao.PENDENTE);
+            assertThat(r.valorEstimado()).isEqualByComparingTo("200.00");
+        });
+        verify(solicitacoes, never()).findByLocadoraIdOrderByDataCriacaoAscIdAsc(any());
+    }
+
+    @Test
+    void listaTodasAsSolicitacoesSemFiltro() {
+        prepararLocadora();
+        Solicitacao aprovada = new Solicitacao(1L, 10L, 20L, HOJE.plusDays(1), HOJE.plusDays(3));
+        aprovada.aprovar(30L);
+        Solicitacao pendente = new Solicitacao(1L, 11L, 20L, HOJE.plusDays(2), HOJE.plusDays(4));
+        when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L)).thenReturn(List.of(aprovada, pendente));
+
+        assertThat(service.listar(null)).extracting(SolicitacaoResumo::status).containsExactly(StatusSolicitacao.APROVADA, StatusSolicitacao.PENDENTE);
     }
 }
