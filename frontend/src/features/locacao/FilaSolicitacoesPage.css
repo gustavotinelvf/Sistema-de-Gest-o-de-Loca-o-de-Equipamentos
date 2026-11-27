@@ -1,3 +1,35 @@
+.fila-solicitacoes__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border-radius: 1rem;
+}
+
+.fila-solicitacoes__cabecalho h1 {
+  margin-bottom: 0.5rem;
+}
+
+.fila-solicitacoes__cabecalho p {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+.fila-solicitacoes__nova {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  background: var(--roxo-escuro);
+  color: var(--branco);
+  text-decoration: none;
+}
+
+.fila-solicitacoes__nova:hover {
+  background: #560080;
+}
+
 .fila-solicitacoes {
   padding: clamp(1rem, 3vw, 1.5rem);
   border: 1px solid var(--borda);
@@ -5,13 +37,27 @@
   background: var(--superficie);
 }
 
-.fila-solicitacoes label {
-  max-width: 16rem;
+.fila-solicitacoes__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.fila-solicitacoes__filtros h2 {
+  margin: 0;
+}
+
+.fila-solicitacoes__filtros label {
+  flex: 0 1 12rem;
 }
 
 .fila-solicitacoes__tabela {
   overflow-x: auto;
+  border: 1px solid var(--borda);
+  border-radius: 0.75rem;
 }
 
 .fila-solicitacoes table {
@@ -28,4 +74,37 @@
   padding: 0.75rem;
   border-bottom: 1px solid var(--borda);
   text-align: left;
+}
+
+.fila-solicitacoes thead th {
+  white-space: nowrap;
+}
+
+.fila-solicitacoes tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.fila-solicitacoes td.fila-solicitacoes__vazio {
+  padding-block: 2.5rem;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+.fila-solicitacoes__situacao {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 1rem;
+  background: var(--fundo);
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.fila-solicitacoes__situacao[data-status='PENDENTE'] {
+  background: var(--fundo-tabela);
+  color: var(--roxo-claro);
+}
+
+.fila-solicitacoes__situacao[data-status='REJEITADA'] {
+  color: var(--erro);
 }
