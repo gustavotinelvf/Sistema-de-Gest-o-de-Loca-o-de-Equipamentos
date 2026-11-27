@@ -2,8 +2,13 @@
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ziploc_equipe') THEN
         CREATE ROLE ziploc_equipe NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;
     END IF;
+
+    EXECUTE format(
+        'GRANT CONNECT ON DATABASE %I TO ziploc_equipe',
+        current_database()
+    );
 END $$;
-GRANT CONNECT ON DATABASE ziploc TO ziploc_equipe;
+
 GRANT USAGE ON SCHEMA public TO ziploc_equipe;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
