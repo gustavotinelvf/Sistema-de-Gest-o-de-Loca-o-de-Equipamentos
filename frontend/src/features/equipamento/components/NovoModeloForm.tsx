@@ -5,7 +5,7 @@ import { z } from 'zod'
 const esquema = z.object({
   nome: z.string().trim().min(1, 'Informe o nome.').max(200),
   categoria: z.string().trim().min(1, 'Informe a categoria.').max(100),
-  descricao: z.string(),
+  descricao: z.string().trim().min(1, 'Informe as especificações técnicas.'),
   diaria: z.string().trim()
     .regex(/^\d{1,10}(?:[.,]\d{1,2})?$/, 'Informe um valor com até duas casas decimais.')
     .refine((valor) => Number(valor.replace(',', '.')) > 0, 'A diária deve ser maior que zero.'),
@@ -40,8 +40,9 @@ export function NovoModeloForm() {
         {errors.categoria && <span role="alert">{errors.categoria.message}</span>}
       </label>
       <label>
-        Descrição
-        <textarea {...register('descricao')} rows={3} />
+        Especificações técnicas
+        <textarea {...register('descricao')} rows={3} required aria-invalid={!!errors.descricao} />
+        {errors.descricao && <span role="alert">{errors.descricao.message}</span>}
       </label>
       <label>
         Valor da diária (R$)
