@@ -1,0 +1,38 @@
+.login {
+  max-width: 360px;
+  margin: 12vh auto 0;
+  padding: 0 16px;
+  text-align: left;
+}
+
+.login form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.login input {
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.login button {
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.login .erro {
+  color: #b00020;
+  font-size: 13px;
+  margin: 0;
+}
