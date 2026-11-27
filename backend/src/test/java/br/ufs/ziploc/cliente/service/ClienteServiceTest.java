@@ -12,16 +12,23 @@ import br.ufs.ziploc.cliente.dto.ClienteResponseDTO;
 import br.ufs.ziploc.cliente.repository.ClienteRepository;
 import br.ufs.ziploc.shared.exception.ConflitoException;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
+import java.util.List;
 import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -241,6 +248,63 @@ class ClienteServiceTest {
     }
 
     @Test
+    void deveListarClientesPaginadosComFiltrosDaLocadora_RF004() {
+        configurarLocadora();
+        Cliente cliente = criarClienteValido();
+        Pageable pageable = PageRequest.of(0, 10);
+        when(clienteRepository.findAll(ArgumentMatchers.<Specification<Cliente>>any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(cliente), pageable, 1));
+
+        Page<ClienteResponseDTO> pagina = clienteService.listar(
+                "Horizonte", "11.222.333/0001-81", true, StatusAdimplencia.ADIMPLENTE, pageable
+        );
+
+        assertEquals(1, pagina.getTotalElements());
+        assertEquals("Construtora Horizonte Ltda", pagina.getContent().get(0).razaoSocial());
+        assertEquals("11222333000181", pagina.getContent().get(0).cnpj());
+    }
+
+    @Test
+    void deveBuscarClientePorIdDaLocadora_RF004() {
+        configurarLocadora();
+        Cliente cliente = criarClienteValido();
+        when(clienteRepository.findByIdAndLocadoraId(10L, 1L)).thenReturn(Optional.of(cliente));
+
+        ClienteResponseDTO resposta = clienteService.buscarPorId(10L);
+
+        assertEquals("Construtora Horizonte Ltda", resposta.razaoSocial());
+        assertEquals("11222333000181", resposta.cnpj());
+    }
+
+    @Test
+    void deveLancarExcecaoAoBuscarPorIdInexistente_RF004() {
+        configurarLocadora();
+        when(clienteRepository.findByIdAndLocadoraId(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThrows(RecursoNaoEncontradoException.class, () -> clienteService.buscarPorId(99L));
+    }
+
+    @Test
+    void deveBuscarClientePorCnpjLimpandoMascara_RF004() {
+        configurarLocadora();
+        Cliente cliente = criarClienteValido();
+        when(clienteRepository.findByCnpjAndLocadoraId("11222333000181", 1L)).thenReturn(Optional.of(cliente));
+
+        ClienteResponseDTO resposta = clienteService.buscarPorCnpj("11.222.333/0001-81");
+
+        assertEquals("Construtora Horizonte Ltda", resposta.razaoSocial());
+        assertEquals("11222333000181", resposta.cnpj());
+    }
+
+    @Test
+    void deveLancarExcecaoAoBuscarPorCnpjInexistente_RF004() {
+        configurarLocadora();
+        when(clienteRepository.findByCnpjAndLocadoraId("04252011000110", 1L)).thenReturn(Optional.empty());
+
+        assertThrows(RecursoNaoEncontradoException.class, () -> clienteService.buscarPorCnpj("04.252.011/0001-10"));
+    }
+
+    @Test
     void deveConsultarResumoDoClienteQuandoExistir() {
         Cliente cliente = criarClienteValido();
         when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
@@ -325,5 +389,21 @@ class ClienteServiceTest {
                 () -> clienteService.alterarStatusAdimplencia(99L, StatusAdimplencia.INADIMPLENTE)
         );
         verify(clienteRepository, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",
+            "11222",
+            "11222333000199",
+            "11111111111111",
+            "abc11222333000181",
+            "11@222@333@0001@81"
+    })
+    void deveRejeitarConsultaIndividualComCnpjInvalido(String cnpj) {
+        assertThrows(IllegalArgumentException.class,
+                () -> clienteService.buscarPorCnpj(cnpj));
+
+        verifyNoInteractions(clienteRepository, locadoraApi);
     }
 }
