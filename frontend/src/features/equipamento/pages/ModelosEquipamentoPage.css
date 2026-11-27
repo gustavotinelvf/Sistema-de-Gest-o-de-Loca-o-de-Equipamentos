@@ -132,7 +132,7 @@
   color: var(--erro);
 }
 
-.catalogo--modelos .catalogo__destaque {
+.catalogo .catalogo__destaque {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -183,45 +183,45 @@
   background: #362043;
 }
 
-.catalogo__lista-modelos {
+.catalogo__lista {
   box-shadow: 0 8px 28px #ae00ff0d;
 }
 
-.catalogo__lista-modelos .catalogo__filtros {
+.catalogo__lista .catalogo__filtros {
   align-items: end;
   gap: 0.75rem;
 }
 
-.catalogo__lista-modelos .catalogo__filtros label {
+.catalogo__lista .catalogo__filtros label {
   flex: 0 1 12rem;
   min-width: 0;
   font-weight: 600;
 }
 
-.catalogo__lista-modelos :is(.catalogo__limpar, tbody button) {
+.catalogo__lista :is(.catalogo__limpar, tbody button) {
   border-color: var(--borda);
   background: var(--superficie);
   color: var(--roxo-claro);
 }
 
-.catalogo__lista-modelos :is(.catalogo__limpar, tbody button):hover {
+.catalogo__lista :is(.catalogo__limpar, tbody button):hover {
   background: var(--fundo-tabela);
 }
 
-.catalogo__lista-modelos .catalogo__tabela {
+.catalogo__lista .catalogo__tabela {
   border: 1px solid var(--borda);
   border-radius: 0.75rem;
 }
 
-.catalogo__lista-modelos thead th {
+.catalogo__lista thead th {
   white-space: nowrap;
 }
 
-.catalogo__lista-modelos tbody tr:last-child > * {
+.catalogo__lista tbody tr:last-child > * {
   border-bottom: 0;
 }
 
-.catalogo__lista-modelos td.catalogo__vazio {
+.catalogo__lista td.catalogo__vazio {
   padding-block: 3rem;
 }
 
@@ -241,7 +241,12 @@
 }
 
 @media (max-width: 36rem) {
-  .catalogo__lista-modelos .catalogo__filtros label {
+  .catalogo__lista .catalogo__filtros label {
     flex-basis: 100%;
   }
+}
+
+.catalogo__numero-serie {
+  font-family: ui-monospace, Consolas, monospace;
+  overflow-wrap: anywhere;
 }

@@ -24,7 +24,7 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
   })
 
   return (
-    <main className="catalogo catalogo--modelos">
+    <main className="catalogo">
       <header className="catalogo__cabecalho catalogo__destaque">
         <div>
           <h1>Catálogo de equipamentos</h1>
@@ -55,7 +55,7 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
         </section>
       )}
 
-      <section className="catalogo__painel catalogo__lista-modelos" aria-labelledby="titulo-modelos">
+      <section className="catalogo__painel catalogo__lista" aria-labelledby="titulo-modelos">
         <h2 id="titulo-modelos">Modelos cadastrados</h2>
 
         <div className="catalogo__filtros">

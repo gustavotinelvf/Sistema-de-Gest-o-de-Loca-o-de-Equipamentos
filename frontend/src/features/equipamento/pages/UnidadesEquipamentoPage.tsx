@@ -17,7 +17,12 @@ export function UnidadesEquipamentoPage({ unidades }: { unidades?: readonly Unid
 
   return (
     <main className="catalogo">
-      <h1>Unidades físicas</h1>
+      <header className="catalogo__cabecalho catalogo__destaque">
+        <div>
+          <h1>Unidades físicas</h1>
+          <p>Acompanhe cada equipamento pelo número de série e pelo status operacional.</p>
+        </div>
+      </header>
       {unidadeEmEdicao && (
         <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-edicao-unidade">
           <h2 id="titulo-edicao-unidade">Editar unidade {unidadeEmEdicao.numeroSerie}</h2>
@@ -25,7 +30,7 @@ export function UnidadesEquipamentoPage({ unidades }: { unidades?: readonly Unid
           <button type="button" onClick={() => setIdEmEdicao(null)}>Fechar edição</button>
         </section>
       )}
-      <section className="catalogo__painel" aria-labelledby="titulo-unidades">
+      <section className="catalogo__painel catalogo__lista" aria-labelledby="titulo-unidades">
         <h2 id="titulo-unidades">Unidades cadastradas</h2>
         <div className="catalogo__tabela">
           <table aria-labelledby="titulo-unidades">
@@ -42,10 +47,14 @@ export function UnidadesEquipamentoPage({ unidades }: { unidades?: readonly Unid
             <tbody>
               {unidades?.length ? unidades.map((unidade) => (
                 <tr key={unidade.id}>
-                  <th scope="row">{unidade.numeroSerie}</th>
+                  <th scope="row" className="catalogo__numero-serie">{unidade.numeroSerie}</th>
                   <td>{unidade.modeloNome}</td>
                   <td>{unidade.categoria}</td>
-                  <td>{rotulosStatus[unidade.status]}</td>
+                  <td>
+                    <span className="catalogo__situacao" data-ativo={unidade.status === 'DISPONIVEL'}>
+                      {rotulosStatus[unidade.status]}
+                    </span>
+                  </td>
                   <td>{unidade.ativo ? 'Ativa' : 'Inativa'}</td>
                   <td>
                     <button
