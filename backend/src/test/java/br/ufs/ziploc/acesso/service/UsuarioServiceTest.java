@@ -12,6 +12,7 @@ import br.ufs.ziploc.acesso.domain.StatusUsuario;
 import br.ufs.ziploc.acesso.domain.Usuario;
 import br.ufs.ziploc.acesso.dto.UsuarioResponseDTO;
 import br.ufs.ziploc.acesso.repository.UsuarioRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -99,5 +100,44 @@ class UsuarioServiceTest {
         when(usuarioRepository.findById(9L)).thenReturn(Optional.empty());
 
         assertThrows(UsuarioNaoEncontradoException.class, () -> service.reativar(9L));
+    }
+
+    @Test
+    void reativar_usuarioAnonimizado_lancaOperacaoInvalida() {
+        Usuario anonimizado = usuario(4L, "Usuario Anonimizado");
+        anonimizado.inativar();
+
+        ReflectionTestUtils.setField(anonimizado, "anonimizadoEm", Instant.now());
+        ReflectionTestUtils.setField(anonimizado, "senhaHash", null);
+
+        when(usuarioRepository.findById(4L)).thenReturn(Optional.of(anonimizado));
+
+        OperacaoUsuarioInvalidaException erro = assertThrows(
+                OperacaoUsuarioInvalidaException.class,
+                () -> service.reativar(4L));
+
+        assertEquals("Um usuário anonimizado não pode ser reativado", erro.getMessage());
+        assertEquals(StatusUsuario.INATIVO, anonimizado.getStatus());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void reativar_gerenteSemCpf_lancaOperacaoInvalida() {
+        Usuario gerente = Usuario.criarAtivo(
+                1L, "Ana", "ana@x.com", "hash", Perfil.GERENTE, "12345678901");
+
+        ReflectionTestUtils.setField(gerente, "id", 5L);
+        gerente.inativar();
+        ReflectionTestUtils.setField(gerente, "cpf", null);
+
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(gerente));
+
+        OperacaoUsuarioInvalidaException erro = assertThrows(
+                OperacaoUsuarioInvalidaException.class,
+                () -> service.reativar(5L));
+
+        assertEquals("CPF é obrigatório para o perfil GERENTE (RD016)", erro.getMessage());
+        assertEquals(StatusUsuario.INATIVO, gerente.getStatus());
+        verify(usuarioRepository, never()).save(any());
     }
 }

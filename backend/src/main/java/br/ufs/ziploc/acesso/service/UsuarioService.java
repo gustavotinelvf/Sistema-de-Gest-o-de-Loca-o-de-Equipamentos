@@ -38,12 +38,13 @@ public class UsuarioService {
     @Transactional
     public UsuarioResponseDTO reativar(Long id) {
         Usuario usuario = buscar(id);
-        // O banco exige senha para status ATIVO: quem nunca aceitou o convite não é reativado.
-        if (usuario.getSenhaHash() == null) {
-            throw new OperacaoUsuarioInvalidaException(
-                    "O usuário ainda não concluiu o cadastro (convite pendente)");
+
+        try {
+            usuario.ativar();
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new OperacaoUsuarioInvalidaException(e.getMessage());
         }
-        usuario.ativar();
+
         usuarioRepository.save(usuario);
         return UsuarioResponseDTO.from(usuario);
     }
