@@ -1,5 +1,6 @@
 package br.ufs.ziploc.locacao.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.locacao.api.ContratoApi;
@@ -19,7 +20,6 @@ import br.ufs.ziploc.shared.persistence.ViolacaoIntegridade;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -42,6 +43,7 @@ public class ContratoService implements ContratoApi {
     private final ItemContratoRepository itemContratoRepository;
     private final UnidadeApi unidadeApi;
     private final EntityManager entityManager;
+    private final LocadoraApi locadoraApi;
 
     /**
      * Retirada: PLANEJADO → ATIVO.
@@ -126,11 +128,22 @@ public class ContratoService implements ContratoApi {
         return ContratoResponse.de(carregar(id));
     }
 
-    /** Lista contratos por status (sem status, todos), do início previsto mais próximo para o mais distante. */
+    /** Lista contratos da locadora por status, ordenados pela data de início prevista e pelo ID. */
     @Transactional(readOnly = true)
     public List<ContratoListagemResponse> listar(StatusContrato status) {
-        Sort ordem = Sort.by("dataInicioPrevista", "id");
-        List<Contrato> encontrados = status == null ? contratos.findAll(ordem) : contratos.findByStatus(status, ordem);
+        Long locadoraId = Objects.requireNonNull(
+                locadoraApi.obterParametros().id(),
+                "O identificador da locadora é obrigatório."
+        );
+
+        if (locadoraId <= 0) {
+            throw new IllegalStateException("O identificador da locadora é inválido.");
+        }
+
+        List<Contrato> encontrados = status == null
+                ? contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(locadoraId)
+                : contratos.findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(locadoraId, status);
+
         return encontrados.stream().map(ContratoListagemResponse::de).toList();
     }
 

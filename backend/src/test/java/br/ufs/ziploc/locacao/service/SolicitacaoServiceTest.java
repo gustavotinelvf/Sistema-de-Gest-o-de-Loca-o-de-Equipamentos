@@ -1,4 +1,3 @@
-
 package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
@@ -58,10 +57,15 @@ class SolicitacaoServiceTest {
     }
 
     private void prepararCliente(boolean ativo, boolean adimplente) {
-        when(clienteApi.consultarResumo(10L)).thenReturn(new ClienteResumoDTO(10L, 1L, "Construtora", "12345678000199", "Ana",
-                "11122233344", "ana@teste.com", "79999999999", adimplente ? StatusAdimplencia.ADIMPLENTE : StatusAdimplencia.INADIMPLENTE,
-                ativo, "49100000", "Rua B", "20", null, "Centro", "São Cristóvão", "SE"));
-        if (ativo) when(clienteApi.verificarAdimplencia(10L)).thenReturn(adimplente);
+        prepararCliente(1L, ativo,
+                adimplente ? StatusAdimplencia.ADIMPLENTE : StatusAdimplencia.INADIMPLENTE);
+    }
+
+    private void prepararCliente(Long locadoraId, boolean ativo, StatusAdimplencia status) {
+        when(clienteApi.consultarResumo(10L)).thenReturn(
+                new ClienteResumoDTO(10L, locadoraId, "Construtora", "12345678000199", "Ana",
+                        "11122233344", "ana@teste.com", "79999999999", status,
+                        ativo, "49100000", "Rua B", "20", null, "Centro", "São Cristóvão", "SE"));
     }
 
     private ModeloInfo modelo(boolean ativo) {
@@ -86,6 +90,10 @@ class SolicitacaoServiceTest {
         assertThat(r.itens().get(0).quantidade()).isEqualTo(3);
         assertThat(r.clienteId()).isEqualTo(10L);
         assertThat(r.valorEstimado()).isEqualByComparingTo("1800.00");
+
+        verify(clienteApi).consultarResumo(10L);
+        verify(clienteApi, never()).verificarAdimplencia(any());
+        verify(solicitacoes).saveAndFlush(any(Solicitacao.class));
     }
 
     @Test
@@ -96,6 +104,8 @@ class SolicitacaoServiceTest {
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalStateException.class);
+
+        verifyNoInteractions(solicitacoes);
     }
 
     @Test
@@ -106,6 +116,8 @@ class SolicitacaoServiceTest {
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
+
+        verifyNoInteractions(solicitacoes);
     }
 
     @Test
@@ -117,12 +129,16 @@ class SolicitacaoServiceTest {
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1),
                 new RegistrarSolicitacaoRequest.Item(1L, 1), new RegistrarSolicitacaoRequest.Item(1L, 2)), 20L))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(solicitacoes);
     }
 
     @Test
     void rejeitaDataDeInicioNoPassado() {
         assertThatThrownBy(() -> service.registrar(request(HOJE.minusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(locadoraApi, clienteApi, unidadeApi, solicitacoes);
     }
 
     @Test
@@ -162,6 +178,7 @@ class SolicitacaoServiceTest {
             assertThat(r.status()).isEqualTo(StatusSolicitacao.PENDENTE);
             assertThat(r.valorEstimado()).isEqualByComparingTo("600.00");
         });
+
         verify(solicitacoes, never()).findByLocadoraIdOrderByDataCriacaoAscIdAsc(any());
     }
 
@@ -173,7 +190,8 @@ class SolicitacaoServiceTest {
         Solicitacao pendente = new Solicitacao(1L, 11L, 20L, HOJE.plusDays(2), HOJE.plusDays(4));
         when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L)).thenReturn(List.of(aprovada, pendente));
 
-        assertThat(service.listar(null)).extracting(SolicitacaoResumo::status).containsExactly(StatusSolicitacao.APROVADA, StatusSolicitacao.PENDENTE);
+        assertThat(service.listar(null)).extracting(SolicitacaoResumo::status)
+                .containsExactly(StatusSolicitacao.APROVADA, StatusSolicitacao.PENDENTE);
     }
 
     @ParameterizedTest
@@ -258,29 +276,147 @@ class SolicitacaoServiceTest {
 
     @Test
     void bloqueiaClienteInadimplente_RD011() {
+        prepararLocadora();
         prepararCliente(true, false);
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("RD011");
-        verify(solicitacoes, never()).saveAndFlush(any());
+
+        verify(clienteApi).consultarResumo(10L);
+        verify(clienteApi, never()).verificarAdimplencia(any());
+        verifyNoInteractions(solicitacoes, unidadeApi);
     }
 
     @Test
     void bloqueiaClienteInativo() {
+        prepararLocadora();
         prepararCliente(false, true);
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("inativo");
-        verify(solicitacoes, never()).saveAndFlush(any());
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+    }
+
+    @Test
+    void bloqueiaClienteInativoEInadimplente() {
+        prepararLocadora();
+        prepararCliente(false, false);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("inativo");
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
     }
 
     @Test
     void clienteInexistenteResultaEmNaoEncontrado() {
-        when(clienteApi.consultarResumo(10L)).thenThrow(new RecursoNaoEncontradoException("Cliente não encontrado com id: 10"));
+        prepararLocadora();
+
+        when(clienteApi.consultarResumo(10L))
+                .thenThrow(new RecursoNaoEncontradoException("Cliente não encontrado com id: 10"));
 
         assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+    }
+
+    @Test
+    void bloqueiaClienteDeOutraLocadora() {
+        prepararLocadora();
+        prepararCliente(2L, true, StatusAdimplencia.ADIMPLENTE);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(RecursoNaoEncontradoException.class)
+                .hasMessageContaining("Cliente não encontrado");
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+    }
+
+    @Test
+    void bloqueiaClienteSemLocadora() {
+        prepararLocadora();
+        prepararCliente(null, true, StatusAdimplencia.ADIMPLENTE);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+    }
+
+    @Test
+    void bloqueiaClienteComStatusAdimplenciaIndefinido() {
+        prepararLocadora();
+        prepararCliente(1L, true, null);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RD011");
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, -1L})
+    void impedeRegistroComLocadoraInvalida(Long locadoraId) {
+        ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
+
+        when(parametros.id()).thenReturn(locadoraId);
+        when(locadoraApi.obterParametros()).thenReturn(parametros);
+
+        Class<? extends RuntimeException> excecao = locadoraId == null
+                ? NullPointerException.class
+                : IllegalStateException.class;
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(excecao);
+
+        verifyNoInteractions(clienteApi, unidadeApi, solicitacoes);
+    }
+
+    @Test
+    void clienteRegularizadoPodeRegistrarNovaSolicitacao() {
+        prepararLocadora();
+
+        ClienteResumoDTO inadimplente = new ClienteResumoDTO(
+                10L, 1L, "Construtora", "12345678000199", "Ana",
+                "11122233344", "ana@teste.com", "79999999999",
+                StatusAdimplencia.INADIMPLENTE, true,
+                "49100000", "Rua B", "20", null, "Centro", "São Cristóvão", "SE");
+
+        ClienteResumoDTO adimplente = new ClienteResumoDTO(
+                10L, 1L, "Construtora", "12345678000199", "Ana",
+                "11122233344", "ana@teste.com", "79999999999",
+                StatusAdimplencia.ADIMPLENTE, true,
+                "49100000", "Rua B", "20", null, "Centro", "São Cristóvão", "SE");
+
+        when(clienteApi.consultarResumo(10L))
+                .thenReturn(inadimplente, adimplente);
+
+        RegistrarSolicitacaoRequest pedido = request(
+                HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1));
+
+        assertThatThrownBy(() -> service.registrar(pedido, 20L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RD011");
+
+        verifyNoInteractions(solicitacoes, unidadeApi);
+
+        when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(true)));
+        when(solicitacoes.saveAndFlush(any(Solicitacao.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        SolicitacaoResponse resposta = service.registrar(pedido, 20L);
+
+        assertThat(resposta.status()).isEqualTo(StatusSolicitacao.PENDENTE);
+        assertThat(resposta.valorEstimado()).isEqualByComparingTo("600.00");
+
+        verify(solicitacoes).saveAndFlush(any(Solicitacao.class));
+        verify(clienteApi, never()).verificarAdimplencia(any());
     }
 }

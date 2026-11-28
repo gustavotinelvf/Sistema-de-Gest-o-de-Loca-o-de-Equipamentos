@@ -1,5 +1,7 @@
 package br.ufs.ziploc.locacao.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
+import br.ufs.ziploc.acesso.api.ParametrosLocadoraDTO;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.locacao.domain.Contrato;
@@ -12,11 +14,14 @@ import br.ufs.ziploc.shared.exception.ConflitoException;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -29,7 +34,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,7 +50,14 @@ class ContratoServiceTest {
     @Mock ContratoRepository contratos;
     @Mock UnidadeApi unidadeApi;
     @Mock EntityManager entityManager;
+    @Mock LocadoraApi locadoraApi;
     @InjectMocks ContratoService service;
+
+    private void prepararLocadora(Long id) {
+        ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
+        when(parametros.id()).thenReturn(id);
+        when(locadoraApi.obterParametros()).thenReturn(parametros);
+    }
 
     private Contrato contratoPlanejado(Long... unidadeIds) {
         Solicitacao s = new Solicitacao(1L, 1L, 2L, INICIO, FIM);
@@ -195,23 +207,130 @@ class ContratoServiceTest {
 
     @Test
     void listaContratosDoStatusPedido() {
+        prepararLocadora(1L);
         Contrato c = contratoPlanejado(10L);
-        when(contratos.findByStatus(eq(StatusContrato.PLANEJADO), any(Sort.class))).thenReturn(List.of(c));
+        ReflectionTestUtils.setField(c, "id", 15L);
+
+        when(contratos.findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(
+                1L, StatusContrato.PLANEJADO)).thenReturn(List.of(c));
 
         List<ContratoListagemResponse> r = service.listar(StatusContrato.PLANEJADO);
 
-        assertThat(r).hasSize(1);
-        assertThat(r.get(0).status()).isEqualTo(StatusContrato.PLANEJADO);
-        assertThat(r.get(0).solicitacaoId()).isEqualTo(7L);
-        assertThat(r.get(0).dataInicioPrevista()).isEqualTo(INICIO);
-        verify(contratos, never()).findAll(any(Sort.class));
+        assertThat(r).singleElement().satisfies(linha -> {
+            assertThat(linha.id()).isEqualTo(15L);
+            assertThat(linha.clienteId()).isEqualTo(1L);
+            assertThat(linha.solicitacaoId()).isEqualTo(7L);
+            assertThat(linha.status()).isEqualTo(StatusContrato.PLANEJADO);
+            assertThat(linha.dataInicioPrevista()).isEqualTo(INICIO);
+            assertThat(linha.dataFimPrevista()).isEqualTo(FIM);
+            assertThat(linha.valorTotal()).isEqualByComparingTo("1000.00");
+        });
+
+        verify(contratos).findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(
+                1L, StatusContrato.PLANEJADO);
+
+        verify(contratos, never()).findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(any());
     }
 
     @Test
     void semStatusListaTodosOsContratos() {
-        when(contratos.findAll(any(Sort.class))).thenReturn(List.of(contratoPlanejado(10L), contratoPlanejado(11L)));
+        prepararLocadora(1L);
+        Contrato planejado = contratoPlanejado(10L);
+        Contrato ativo = contratoAtivo(11L);
 
-        assertThat(service.listar(null)).hasSize(2);
-        verify(contratos, never()).findByStatus(any(), any());
+        when(contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(1L))
+                .thenReturn(List.of(planejado, ativo));
+
+        assertThat(service.listar(null))
+                .extracting(ContratoListagemResponse::status)
+                .containsExactly(StatusContrato.PLANEJADO, StatusContrato.ATIVO);
+
+        verify(contratos, never())
+                .findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(any(), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(StatusContrato.class)
+    void consultaContratosParaCadaStatus(StatusContrato status) {
+        prepararLocadora(1L);
+
+        when(contratos.findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(1L, status))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(status)).isEmpty();
+
+        verify(contratos).findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(1L, status);
+        verify(contratos, never()).findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(any());
+    }
+
+    @Test
+    void retornaListaVaziaSemFiltro() {
+        prepararLocadora(1L);
+
+        when(contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(1L))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(null)).isEmpty();
+
+        verify(contratos).findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(1L);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, -1L})
+    void impedeListagemComLocadoraInvalida(Long locadoraId) {
+        prepararLocadora(locadoraId);
+
+        Class<? extends RuntimeException> excecao = locadoraId == null
+                ? NullPointerException.class
+                : IllegalStateException.class;
+
+        assertThatThrownBy(() -> service.listar(null))
+                .isInstanceOf(excecao);
+
+        verifyNoInteractions(contratos);
+    }
+
+    @Test
+    void utilizaLocadoraFornecidaPelaApiSemFiltro() {
+        prepararLocadora(42L);
+
+        when(contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(42L))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(null)).isEmpty();
+
+        verify(contratos).findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(42L);
+    }
+
+    @Test
+    void utilizaLocadoraFornecidaPelaApiComFiltro() {
+        prepararLocadora(42L);
+
+        when(contratos.findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(
+                42L, StatusContrato.ATIVO)).thenReturn(List.of());
+
+        assertThat(service.listar(StatusContrato.ATIVO)).isEmpty();
+
+        verify(contratos).findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(
+                42L, StatusContrato.ATIVO);
+    }
+
+    @Test
+    void montaListagemSemConsultarItensDoContrato() {
+        prepararLocadora(1L);
+
+        Contrato c = mock(Contrato.class);
+        when(c.getId()).thenReturn(15L);
+
+        when(contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(1L))
+                .thenReturn(List.of(c));
+
+        assertThat(service.listar(null))
+                .extracting(ContratoListagemResponse::id)
+                .containsExactly(15L);
+
+        verify(c, never()).getItens();
+        verifyNoInteractions(unidadeApi);
     }
 }
