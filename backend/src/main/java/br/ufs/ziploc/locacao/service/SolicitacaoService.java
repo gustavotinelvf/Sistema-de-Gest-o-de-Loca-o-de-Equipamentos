@@ -1,7 +1,9 @@
-
 package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
+import br.ufs.ziploc.cliente.api.ClienteApi;
+import br.ufs.ziploc.cliente.api.ClienteResumoDTO;
+import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
 import br.ufs.ziploc.disponibilidade.api.DisponibilidadeApi;
 import br.ufs.ziploc.disponibilidade.api.ItemPedidoDTO;
 import br.ufs.ziploc.disponibilidade.api.UnidadeDTO;
@@ -48,6 +50,7 @@ public class SolicitacaoService {
     private final DisponibilidadeApi disponibilidadeApi;
     private final UnidadeApi unidadeApi;
     private final LocadoraApi locadoraApi;
+    private final ClienteApi clienteApi;
 
     @Transactional
     public SolicitacaoResponse registrar(RegistrarSolicitacaoRequest r, Long registradoPorId) {
@@ -55,7 +58,10 @@ public class SolicitacaoService {
             throw new IllegalArgumentException("A data de início desejada não pode estar no passado.");
         }
 
-        Long locadoraId = locadoraApi.obterParametros().id();
+        Long locadoraId = obterLocadoraId();
+
+        exigirClienteApto(r.clienteId(), locadoraId);
+
         Solicitacao solicitacao = new Solicitacao(locadoraId, r.clienteId(), registradoPorId, r.dataInicioDesejada(), r.dataFimDesejada());
 
         Set<Long> modelosVistos = new HashSet<>();
@@ -75,6 +81,33 @@ public class SolicitacaoService {
 
     @Transactional(readOnly = true)
     public List<SolicitacaoResumo> listar(StatusSolicitacao status) {
+        Long locadoraId = obterLocadoraId();
+
+        List<Solicitacao> solicitacoes = status == null
+                ? solicitacaoRepository.findByLocadoraIdOrderByDataCriacaoAscIdAsc(locadoraId)
+                : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
+
+        return solicitacoes.stream().map(SolicitacaoResumo::de).toList();
+    }
+
+    /** RD011: somente clientes ativos e adimplentes da locadora podem registrar solicitações. */
+    private void exigirClienteApto(Long clienteId, Long locadoraId) {
+        ClienteResumoDTO cliente = clienteApi.consultarResumo(clienteId);
+
+        if (!Objects.equals(locadoraId, cliente.locadoraId())) {
+            throw new RecursoNaoEncontradoException("Cliente não encontrado com id: " + clienteId);
+        }
+
+        if (!cliente.ativo()) {
+            throw new IllegalStateException("O cliente está inativo e não pode registrar solicitações.");
+        }
+
+        if (cliente.statusAdimplencia() != StatusAdimplencia.ADIMPLENTE) {
+            throw new IllegalStateException("O cliente está inadimplente: o registro de novas solicitações está bloqueado (RD011).");
+        }
+    }
+
+    private Long obterLocadoraId() {
         Long locadoraId = Objects.requireNonNull(
                 locadoraApi.obterParametros().id(),
                 "O identificador da locadora é obrigatório."
@@ -84,11 +117,7 @@ public class SolicitacaoService {
             throw new IllegalStateException("O identificador da locadora é inválido.");
         }
 
-        List<Solicitacao> solicitacoes = status == null
-                ? solicitacaoRepository.findByLocadoraIdOrderByDataCriacaoAscIdAsc(locadoraId)
-                : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
-
-        return solicitacoes.stream().map(SolicitacaoResumo::de).toList();
+        return locadoraId;
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,6 @@
 package br.ufs.ziploc.locacao.service;
 
+import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.locacao.api.ContratoApi;
@@ -9,6 +10,7 @@ import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.ItemContrato;
 import br.ufs.ziploc.locacao.domain.StatusContrato;
+import br.ufs.ziploc.locacao.dto.ContratoListagemResponse;
 import br.ufs.ziploc.locacao.dto.ContratoResponse;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
 import br.ufs.ziploc.locacao.repository.ItemContratoRepository;
@@ -27,6 +29,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -39,6 +43,7 @@ public class ContratoService implements ContratoApi {
     private final ItemContratoRepository itemContratoRepository;
     private final UnidadeApi unidadeApi;
     private final EntityManager entityManager;
+    private final LocadoraApi locadoraApi;
 
     /**
      * Retirada: PLANEJADO → ATIVO.
@@ -121,6 +126,25 @@ public class ContratoService implements ContratoApi {
     @Transactional(readOnly = true)
     public ContratoResponse buscar(Long id) {
         return ContratoResponse.de(carregar(id));
+    }
+
+    /** Lista contratos da locadora por status, ordenados pela data de início prevista e pelo ID. */
+    @Transactional(readOnly = true)
+    public List<ContratoListagemResponse> listar(StatusContrato status) {
+        Long locadoraId = Objects.requireNonNull(
+                locadoraApi.obterParametros().id(),
+                "O identificador da locadora é obrigatório."
+        );
+
+        if (locadoraId <= 0) {
+            throw new IllegalStateException("O identificador da locadora é inválido.");
+        }
+
+        List<Contrato> encontrados = status == null
+                ? contratos.findByLocadoraIdOrderByDataInicioPrevistaAscIdAsc(locadoraId)
+                : contratos.findByLocadoraIdAndStatusOrderByDataInicioPrevistaAscIdAsc(locadoraId, status);
+
+        return encontrados.stream().map(ContratoListagemResponse::de).toList();
     }
 
     @Override
