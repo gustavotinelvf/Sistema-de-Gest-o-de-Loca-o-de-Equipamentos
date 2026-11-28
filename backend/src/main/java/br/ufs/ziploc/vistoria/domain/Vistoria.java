@@ -47,10 +47,14 @@ public class Vistoria {
     private String descricaoAvarias;
 
     public Vistoria(Long locadoraId, Long devolucaoId, Long tecnicoId, Instant dataInicio) {
-        if (locadoraId == null) throw new IllegalArgumentException("A locadora é obrigatória.");
-        if (devolucaoId == null) throw new IllegalArgumentException("A devolução é obrigatória.");
-        if (tecnicoId == null) throw new IllegalArgumentException("O técnico é obrigatório.");
-        if (dataInicio == null) throw new IllegalArgumentException("A data de início é obrigatória.");
+        validarId(locadoraId, "O identificador da locadora é obrigatório e deve ser positivo.");
+        validarId(devolucaoId, "O identificador da devolução é obrigatório e deve ser positivo.");
+        validarId(tecnicoId, "O identificador do técnico é obrigatório e deve ser positivo.");
+
+        if (dataInicio == null) {
+            throw new IllegalArgumentException("A data de início é obrigatória.");
+        }
+
         this.locadoraId = locadoraId;
         this.devolucaoId = devolucaoId;
         this.tecnicoId = tecnicoId;
@@ -67,22 +71,43 @@ public class Vistoria {
 
     public void concluir(ResultadoVistoria resultado, String descricaoAvarias, Instant dataConclusao) {
         if (estaConcluida()) {
-            throw new IllegalStateException("A vistoria da devolução " + devolucaoId + " já foi concluída.");
+            throw new IllegalStateException(
+                    "A vistoria da devolução " + devolucaoId + " já foi concluída.");
         }
-        if (resultado == null) throw new IllegalArgumentException("O resultado da vistoria é obrigatório.");
-        if (dataConclusao == null) throw new IllegalArgumentException("A data de conclusão é obrigatória.");
+
+        if (resultado == null) {
+            throw new IllegalArgumentException("O resultado da vistoria é obrigatório.");
+        }
+
+        if (dataConclusao == null) {
+            throw new IllegalArgumentException("A data de conclusão é obrigatória.");
+        }
+
         if (dataConclusao.isBefore(dataInicio)) {
             throw new IllegalArgumentException("A data de conclusão não pode ser anterior ao início.");
         }
 
-        String descricao = (descricaoAvarias == null || descricaoAvarias.isBlank()) ? null : descricaoAvarias.strip();
+        String descricao = (descricaoAvarias == null || descricaoAvarias.isBlank())
+                ? null : descricaoAvarias.strip();
+
         if (resultado == ResultadoVistoria.REPROVADA && descricao == null) {
             throw new IllegalArgumentException(
                     "RD022: a descrição das avarias é obrigatória quando a vistoria é reprovada.");
         }
 
+        if (descricao != null && descricao.length() > 2000) {
+            throw new IllegalArgumentException(
+                    "A descrição das avarias deve possuir no máximo 2000 caracteres.");
+        }
+
         this.resultado = resultado;
         this.descricaoAvarias = descricao;
         this.dataConclusao = dataConclusao;
+    }
+
+    private static void validarId(Long id, String mensagem) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException(mensagem);
+        }
     }
 }

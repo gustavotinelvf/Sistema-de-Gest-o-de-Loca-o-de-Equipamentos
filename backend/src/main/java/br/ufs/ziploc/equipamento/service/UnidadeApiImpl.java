@@ -9,6 +9,7 @@ import br.ufs.ziploc.equipamento.repository.UnidadeEquipamentoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -30,8 +31,13 @@ public class UnidadeApiImpl implements UnidadeApi {
     @Override
     @Transactional(readOnly = true)
     public Optional<UnidadeInfo> buscarUnidade(Long unidadeId) {
-        return unidades.findById(unidadeId).map(u -> new UnidadeInfo(u.getId(), u.getModelo().getId(), u.getNumeroSerie(),
-                u.getStatus().name(), u.isAtivo(), u.getModelo().getValorDiariaBase()));
+        return unidades.findById(unidadeId).map(UnidadeApiImpl::paraResumo);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<UnidadeInfo> buscarUnidadeParaAtualizacao(Long unidadeId) {
+        return unidades.findByIdForUpdate(unidadeId).map(UnidadeApiImpl::paraResumo);
     }
 
     @Override
@@ -71,6 +77,18 @@ public class UnidadeApiImpl implements UnidadeApi {
 
     private UnidadeEquipamento carregar(Long unidadeId) {
         return unidades.findByIdForUpdate(unidadeId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Unidade de equipamento " + unidadeId + " não encontrada."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                        "Unidade de equipamento " + unidadeId + " não encontrada."));
+    }
+
+    private static UnidadeInfo paraResumo(UnidadeEquipamento u) {
+        return new UnidadeInfo(
+                u.getId(),
+                u.getModelo().getId(),
+                u.getNumeroSerie(),
+                u.getStatus().name(),
+                u.isAtivo(),
+                u.getModelo().getValorDiariaBase()
+        );
     }
 }
