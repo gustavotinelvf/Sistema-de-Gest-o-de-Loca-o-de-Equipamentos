@@ -1,5 +1,7 @@
 package br.ufs.ziploc.locacao.controller;
 
+import br.ufs.ziploc.locacao.domain.StatusContrato;
+import br.ufs.ziploc.locacao.dto.ContratoListagemResponse;
 import br.ufs.ziploc.locacao.dto.ContratoResponse;
 import br.ufs.ziploc.locacao.dto.JustificativaRequest;
 import br.ufs.ziploc.locacao.dto.ProrrogacaoRequest;
@@ -12,12 +14,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/contratos")
 @RequiredArgsConstructor
 public class ContratoController {
 
     private final ContratoService service;
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ATENDENTE', 'GERENTE', 'FINANCEIRO')")
+    public ResponseEntity<List<ContratoListagemResponse>> listar(@RequestParam(required = false) StatusContrato status) {
+        return ResponseEntity.ok(service.listar(status));
+    }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ATENDENTE', 'GERENTE', 'FINANCEIRO')")

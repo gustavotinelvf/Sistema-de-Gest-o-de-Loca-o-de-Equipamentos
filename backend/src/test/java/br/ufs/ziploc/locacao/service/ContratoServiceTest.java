@@ -5,6 +5,7 @@ import br.ufs.ziploc.equipamento.api.UnidadeInfo;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.Solicitacao;
 import br.ufs.ziploc.locacao.domain.StatusContrato;
+import br.ufs.ziploc.locacao.dto.ContratoListagemResponse;
 import br.ufs.ziploc.locacao.dto.ContratoResponse;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
 import br.ufs.ziploc.shared.exception.ConflitoException;
@@ -15,17 +16,20 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -185,5 +189,29 @@ class ContratoServiceTest {
 
         assertThatThrownBy(() -> service.prorrogar(1L, FIM.plusDays(2))).isInstanceOf(ConflitoException.class);
         verify(entityManager, never()).refresh(any());
+    }
+
+    // ---------- listagem por status ----------
+
+    @Test
+    void listaContratosDoStatusPedido() {
+        Contrato c = contratoPlanejado(10L);
+        when(contratos.findByStatus(eq(StatusContrato.PLANEJADO), any(Sort.class))).thenReturn(List.of(c));
+
+        List<ContratoListagemResponse> r = service.listar(StatusContrato.PLANEJADO);
+
+        assertThat(r).hasSize(1);
+        assertThat(r.get(0).status()).isEqualTo(StatusContrato.PLANEJADO);
+        assertThat(r.get(0).solicitacaoId()).isEqualTo(7L);
+        assertThat(r.get(0).dataInicioPrevista()).isEqualTo(INICIO);
+        verify(contratos, never()).findAll(any(Sort.class));
+    }
+
+    @Test
+    void semStatusListaTodosOsContratos() {
+        when(contratos.findAll(any(Sort.class))).thenReturn(List.of(contratoPlanejado(10L), contratoPlanejado(11L)));
+
+        assertThat(service.listar(null)).hasSize(2);
+        verify(contratos, never()).findByStatus(any(), any());
     }
 }

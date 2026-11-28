@@ -2,6 +2,8 @@
 package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
+import br.ufs.ziploc.cliente.api.ClienteApi;
+import br.ufs.ziploc.cliente.api.ClienteResumoDTO;
 import br.ufs.ziploc.disponibilidade.api.DisponibilidadeApi;
 import br.ufs.ziploc.disponibilidade.api.ItemPedidoDTO;
 import br.ufs.ziploc.disponibilidade.api.UnidadeDTO;
@@ -48,12 +50,15 @@ public class SolicitacaoService {
     private final DisponibilidadeApi disponibilidadeApi;
     private final UnidadeApi unidadeApi;
     private final LocadoraApi locadoraApi;
+    private final ClienteApi clienteApi;
 
     @Transactional
     public SolicitacaoResponse registrar(RegistrarSolicitacaoRequest r, Long registradoPorId) {
         if (r.dataInicioDesejada().isBefore(LocalDate.now(FUSO_LOCAL))) {
             throw new IllegalArgumentException("A data de início desejada não pode estar no passado.");
         }
+
+        exigirClienteApto(r.clienteId());
 
         Long locadoraId = locadoraApi.obterParametros().id();
         Solicitacao solicitacao = new Solicitacao(locadoraId, r.clienteId(), registradoPorId, r.dataInicioDesejada(), r.dataFimDesejada());
@@ -89,6 +94,17 @@ public class SolicitacaoService {
                 : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
 
         return solicitacoes.stream().map(SolicitacaoResumo::de).toList();
+    }
+
+    /** RD011: cliente inativo ou inadimplente não pode registrar novas solicitações. */
+    private void exigirClienteApto(Long clienteId) {
+        ClienteResumoDTO cliente = clienteApi.consultarResumo(clienteId); // 404 (RecursoNaoEncontradoException) se não existir
+        if (!cliente.ativo()) {
+            throw new IllegalStateException("O cliente está inativo e não pode registrar solicitações.");
+        }
+        if (!clienteApi.verificarAdimplencia(clienteId)) {
+            throw new IllegalStateException("O cliente está inadimplente: o registro de novas solicitações está bloqueado (RD011).");
+        }
     }
 
     @Transactional(readOnly = true)

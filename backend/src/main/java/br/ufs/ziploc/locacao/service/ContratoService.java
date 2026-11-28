@@ -9,6 +9,7 @@ import br.ufs.ziploc.locacao.api.ItemContratoPrazo;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.ItemContrato;
 import br.ufs.ziploc.locacao.domain.StatusContrato;
+import br.ufs.ziploc.locacao.dto.ContratoListagemResponse;
 import br.ufs.ziploc.locacao.dto.ContratoResponse;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
 import br.ufs.ziploc.locacao.repository.ItemContratoRepository;
@@ -18,6 +19,7 @@ import br.ufs.ziploc.shared.persistence.ViolacaoIntegridade;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -121,6 +124,14 @@ public class ContratoService implements ContratoApi {
     @Transactional(readOnly = true)
     public ContratoResponse buscar(Long id) {
         return ContratoResponse.de(carregar(id));
+    }
+
+    /** Lista contratos por status (sem status, todos), do início previsto mais próximo para o mais distante. */
+    @Transactional(readOnly = true)
+    public List<ContratoListagemResponse> listar(StatusContrato status) {
+        Sort ordem = Sort.by("dataInicioPrevista", "id");
+        List<Contrato> encontrados = status == null ? contratos.findAll(ordem) : contratos.findByStatus(status, ordem);
+        return encontrados.stream().map(ContratoListagemResponse::de).toList();
     }
 
     @Override
