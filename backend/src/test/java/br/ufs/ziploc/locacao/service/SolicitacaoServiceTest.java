@@ -1,3 +1,4 @@
+
 package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
@@ -72,6 +73,7 @@ class SolicitacaoServiceTest {
         assertThat(r.itens()).hasSize(1);
         assertThat(r.itens().get(0).quantidade()).isEqualTo(3);
         assertThat(r.clienteId()).isEqualTo(10L);
+        assertThat(r.valorEstimado()).isEqualByComparingTo("1800.00");
     }
 
     @Test
@@ -143,7 +145,7 @@ class SolicitacaoServiceTest {
         assertThat(fila).singleElement().satisfies(r -> {
             assertThat(r.clienteId()).isEqualTo(10L);
             assertThat(r.status()).isEqualTo(StatusSolicitacao.PENDENTE);
-            assertThat(r.valorEstimado()).isEqualByComparingTo("200.00");
+            assertThat(r.valorEstimado()).isEqualByComparingTo("600.00");
         });
         verify(solicitacoes, never()).findByLocadoraIdOrderByDataCriacaoAscIdAsc(any());
     }

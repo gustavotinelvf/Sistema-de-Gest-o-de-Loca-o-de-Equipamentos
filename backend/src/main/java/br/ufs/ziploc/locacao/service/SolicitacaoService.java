@@ -1,3 +1,4 @@
+
 package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
@@ -7,6 +8,7 @@ import br.ufs.ziploc.disponibilidade.api.UnidadeDTO;
 import br.ufs.ziploc.equipamento.api.ModeloInfo;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.locacao.domain.Contrato;
+import br.ufs.ziploc.locacao.domain.ItemSolicitacao;
 import br.ufs.ziploc.locacao.domain.Solicitacao;
 import br.ufs.ziploc.locacao.domain.StatusSolicitacao;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
@@ -28,11 +30,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -119,10 +122,25 @@ public class SolicitacaoService {
 
         List<UnidadeDTO> unidades = disponibilidadeApi.alocarUnidades(pedido, solicitacao.getDataInicioDesejada(), solicitacao.getDataFimDesejada());
 
+        // Preserva as diárias registradas na solicitação, independentemente
+        // de alterações posteriores nos preços do catálogo.
+        Map<Long, BigDecimal> diariasRegistradas = solicitacao.getItens().stream()
+                .collect(Collectors.toMap(
+                        ItemSolicitacao::getModeloId,
+                        ItemSolicitacao::getValorUnitario
+                ));
+
+        BigDecimal valorTotal = calcularValorTotal(solicitacao, unidades, diariasRegistradas);
+
         solicitacaoRepository.flush();
 
-        Contrato contrato = new Contrato(solicitacao, calcularValorTotal(solicitacao, unidades), percentualMulta, condicoesDevolucao);
-        unidades.forEach(u -> contrato.adicionarItem(u.unidadeId(), u.modeloId(), u.valorDiaria()));
+        Contrato contrato = new Contrato(solicitacao, valorTotal, percentualMulta, condicoesDevolucao);
+
+        unidades.forEach(u -> contrato.adicionarItem(
+                u.unidadeId(),
+                u.modeloId(),
+                obterDiariaRegistrada(diariasRegistradas, u.modeloId())
+        ));
 
         return paraDTO(contratoRepository.saveAndFlush(contrato));
     }
@@ -152,9 +170,19 @@ public class SolicitacaoService {
         }
     }
 
-    private static BigDecimal calcularValorTotal(Solicitacao s, List<UnidadeDTO> unidades) {
-        long dias = ChronoUnit.DAYS.between(s.getDataInicioDesejada(), s.getDataFimDesejada()) + 1;
-        return unidades.stream().map(UnidadeDTO::valorDiaria).reduce(BigDecimal.ZERO, BigDecimal::add).multiply(BigDecimal.valueOf(dias));
+    private static BigDecimal obterDiariaRegistrada(Map<Long, BigDecimal> diariasRegistradas, Long modeloId) {
+        BigDecimal diaria = diariasRegistradas.get(modeloId);
+        if (diaria == null) {
+            throw new IllegalStateException("O modelo " + modeloId + " não possui diária registrada na solicitação.");
+        }
+        return diaria;
+    }
+
+    private static BigDecimal calcularValorTotal(Solicitacao s, List<UnidadeDTO> unidades, Map<Long, BigDecimal> diariasRegistradas) {
+        return unidades.stream()
+                .map(u -> obterDiariaRegistrada(diariasRegistradas, u.modeloId()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .multiply(BigDecimal.valueOf(s.getQuantidadeDias()));
     }
 
     private static ContratoDTO paraDTO(Contrato c) {

@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,7 +74,11 @@ public class Solicitacao {
     public void adicionarItem(Long modeloId, int quantidade, BigDecimal valorUnitario) {
         exigirPendente();
         itens.add(new ItemSolicitacao(this, modeloId, quantidade, valorUnitario));
-        this.valorEstimado = valorEstimado.add(valorUnitario.multiply(BigDecimal.valueOf(quantidade)));
+        this.valorEstimado = valorEstimado.add(valorUnitario.multiply(BigDecimal.valueOf(quantidade)).multiply(BigDecimal.valueOf(getQuantidadeDias())));
+    }
+
+    public long getQuantidadeDias() {
+        return ChronoUnit.DAYS.between(dataInicioDesejada, dataFimDesejada) + 1;
     }
 
     public boolean isDistanciaVerificada() {
