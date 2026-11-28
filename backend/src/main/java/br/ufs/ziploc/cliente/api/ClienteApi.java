@@ -1,9 +1,9 @@
 package br.ufs.ziploc.cliente.api;
 
-import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
-
-//Interface pública do módulo Cliente (Regras D2 e D3)
-//Outros módulos devem usar apenas esta API para consultar dados ou solicitar alteração de adimplência
+// Interface pública do módulo Cliente (Regras D2 e D3).
+// Outros módulos devem usar esta API para consultar dados
+// e verificar a adimplência do cliente.
+// A alteração da adimplência segue as regras RD010 e RF018.
 
 public interface ClienteApi {
 
@@ -11,5 +11,4 @@ public interface ClienteApi {
 
     boolean verificarAdimplencia(Long clienteId);
 
-    void alterarStatusAdimplencia(Long clienteId, StatusAdimplencia status);
 }

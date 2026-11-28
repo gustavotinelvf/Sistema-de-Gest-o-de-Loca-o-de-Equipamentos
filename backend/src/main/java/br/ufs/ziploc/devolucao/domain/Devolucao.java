@@ -2,7 +2,6 @@ package br.ufs.ziploc.devolucao.domain;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -41,4 +40,5 @@ public class Devolucao {
 
     @Column(name = "observacoes")
     private String observacoes;
+
 }
