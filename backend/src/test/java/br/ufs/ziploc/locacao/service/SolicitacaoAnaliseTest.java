@@ -126,4 +126,104 @@ class SolicitacaoAnaliseTest {
         when(solicitacaoRepository.findComTravaById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.reprovar(99L, 5L, "Motivo")).isInstanceOf(SolicitacaoNaoEncontradaException.class);
     }
+
+    @Test
+    void preservaDiariaRegistradaQuandoPrecoAumenta() {
+        when(solicitacaoRepository.findComTravaById(7L))
+                .thenReturn(Optional.of(solicitacao));
+
+        when(disponibilidadeApi.alocarUnidades(
+                List.of(new ItemPedidoDTO(30L, 2)),
+                solicitacao.getDataInicioDesejada(),
+                solicitacao.getDataFimDesejada()))
+                .thenReturn(List.of(
+                        new UnidadeDTO(100L, 30L, new BigDecimal("75.00")),
+                        new UnidadeDTO(101L, 30L, new BigDecimal("75.00"))
+                ));
+
+        when(contratoRepository.saveAndFlush(any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ContratoDTO dto = service.aprovar(7L, 5L, BigDecimal.TEN, CONDICOES);
+
+        assertThat(dto.valorTotal()).isEqualByComparingTo("1000.00");
+        assertThat(dto.valorTotal())
+                .isEqualByComparingTo(solicitacao.getValorEstimado());
+
+        assertThat(dto.itens()).hasSize(2).allSatisfy(item ->
+                assertThat(item.valorDiariaContratada())
+                        .isEqualByComparingTo("50.00"));
+    }
+
+    @Test
+    void preservaDiariaRegistradaQuandoPrecoDiminui() {
+        when(solicitacaoRepository.findComTravaById(7L))
+                .thenReturn(Optional.of(solicitacao));
+
+        when(disponibilidadeApi.alocarUnidades(
+                List.of(new ItemPedidoDTO(30L, 2)),
+                solicitacao.getDataInicioDesejada(),
+                solicitacao.getDataFimDesejada()))
+                .thenReturn(List.of(
+                        new UnidadeDTO(100L, 30L, new BigDecimal("40.00")),
+                        new UnidadeDTO(101L, 30L, new BigDecimal("40.00"))
+                ));
+
+        when(contratoRepository.saveAndFlush(any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ContratoDTO dto = service.aprovar(7L, 5L, BigDecimal.TEN, CONDICOES);
+
+        assertThat(dto.valorTotal()).isEqualByComparingTo("1000.00");
+        assertThat(dto.valorTotal())
+                .isEqualByComparingTo(solicitacao.getValorEstimado());
+
+        assertThat(dto.itens()).hasSize(2).allSatisfy(item ->
+                assertThat(item.valorDiariaContratada())
+                        .isEqualByComparingTo("50.00"));
+    }
+
+    @Test
+    void preservaDiariasRegistradasDeModelosDiferentes() {
+        solicitacao.adicionarItem(31L, 1, new BigDecimal("125.50"));
+        ReflectionTestUtils.setField(solicitacao.getItens().get(1), "id", 9L);
+
+        when(solicitacaoRepository.findComTravaById(7L))
+                .thenReturn(Optional.of(solicitacao));
+
+        when(disponibilidadeApi.alocarUnidades(
+                List.of(
+                        new ItemPedidoDTO(30L, 2),
+                        new ItemPedidoDTO(31L, 1)
+                ),
+                solicitacao.getDataInicioDesejada(),
+                solicitacao.getDataFimDesejada()))
+                .thenReturn(List.of(
+                        new UnidadeDTO(100L, 30L, new BigDecimal("75.00")),
+                        new UnidadeDTO(101L, 30L, new BigDecimal("75.00")),
+                        new UnidadeDTO(102L, 31L, new BigDecimal("150.00"))
+                ));
+
+        when(contratoRepository.saveAndFlush(any()))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ContratoDTO dto = service.aprovar(7L, 5L, BigDecimal.TEN, CONDICOES);
+
+        assertThat(dto.valorTotal()).isEqualByComparingTo("2255.00");
+        assertThat(dto.valorTotal())
+                .isEqualByComparingTo(solicitacao.getValorEstimado());
+
+        assertThat(dto.itens())
+                .extracting(ItemContratoDTO::unidadeId)
+                .containsExactly(100L, 101L, 102L);
+
+        assertThat(dto.itens().get(0).valorDiariaContratada())
+                .isEqualByComparingTo("50.00");
+
+        assertThat(dto.itens().get(1).valorDiariaContratada())
+                .isEqualByComparingTo("50.00");
+
+        assertThat(dto.itens().get(2).valorDiariaContratada())
+                .isEqualByComparingTo("125.50");
+    }
 }

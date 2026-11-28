@@ -32,7 +32,6 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -68,18 +67,86 @@ class SolicitacaoControllerTest {
 
     @Test
     void registraComUsuarioAutenticado() throws Exception {
-        SolicitacaoResponse dto = mock(SolicitacaoResponse.class);
-        when(dto.id()).thenReturn(7L);
+        SolicitacaoResponse dto = new SolicitacaoResponse(
+                7L,
+                1L,
+                5L,
+                Instant.parse("2026-11-27T12:00:00Z"),
+                LocalDate.of(2027, 12, 1),
+                LocalDate.of(2027, 12, 10),
+                new BigDecimal("1000.00"),
+                StatusSolicitacao.PENDENTE,
+                null,
+                List.of(new SolicitacaoResponse.Item(1L, 2))
+        );
+
         when(solicitacaoService.registrar(any(), eq(5L))).thenReturn(dto);
-        mvc.perform(post("/api/solicitacoes").with(csrf()).with(user("5").roles("ATENDENTE")).contentType(MediaType.APPLICATION_JSON).content("{\"clienteId\":1,\"dataInicioDesejada\":\"2027-12-01\",\"dataFimDesejada\":\"2027-12-10\",\"itens\":[{\"modeloId\":1,\"quantidade\":2}]}")).andExpect(status().isCreated());
+
+        mvc.perform(post("/api/solicitacoes")
+                .with(csrf())
+                .with(user("5").roles("ATENDENTE"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clienteId\":1,\"dataInicioDesejada\":\"2027-12-01\",\"dataFimDesejada\":\"2027-12-10\",\"itens\":[{\"modeloId\":1,\"quantidade\":2}]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.clienteId").value(1))
+                .andExpect(jsonPath("$.registradoPorId").value(5))
+                .andExpect(jsonPath("$.status").value("PENDENTE"))
+                .andExpect(jsonPath("$.valorEstimado").value(1000.00))
+                .andExpect(jsonPath("$.itens[0].modeloId").value(1))
+                .andExpect(jsonPath("$.itens[0].quantidade").value(2));
+
         verify(solicitacaoService).registrar(any(), eq(5L));
+    }
+
+    @Test
+    void consultaSolicitacaoComValorEstimado_RF046() throws Exception {
+        SolicitacaoResponse dto = new SolicitacaoResponse(
+                7L,
+                1L,
+                5L,
+                Instant.parse("2026-11-27T12:00:00Z"),
+                LocalDate.of(2027, 12, 1),
+                LocalDate.of(2027, 12, 10),
+                new BigDecimal("1000.00"),
+                StatusSolicitacao.PENDENTE,
+                null,
+                List.of(new SolicitacaoResponse.Item(1L, 2))
+        );
+
+        when(solicitacaoService.buscar(7L)).thenReturn(dto);
+
+        mvc.perform(get("/api/solicitacoes/{id}", 7L)
+                .with(user("5").roles("GERENTE")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.clienteId").value(1))
+                .andExpect(jsonPath("$.registradoPorId").value(5))
+                .andExpect(jsonPath("$.dataCriacao").value("2026-11-27T12:00:00Z"))
+                .andExpect(jsonPath("$.dataInicioDesejada").value("2027-12-01"))
+                .andExpect(jsonPath("$.dataFimDesejada").value("2027-12-10"))
+                .andExpect(jsonPath("$.valorEstimado").value(1000.00))
+                .andExpect(jsonPath("$.status").value("PENDENTE"))
+                .andExpect(jsonPath("$.itens[0].modeloId").value(1))
+                .andExpect(jsonPath("$.itens[0].quantidade").value(2));
+
+        verify(solicitacaoService).buscar(7L);
     }
 
     @Test
     void aprovaERespondeCriado() throws Exception {
         ContratoDTO dto = new ContratoDTO(70L, 7L, 1L, null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 10), "PLANEJADO", new BigDecimal("1000.00"), new BigDecimal("12.50"), List.of());
+
         when(solicitacaoService.aprovar(7L, 5L, new BigDecimal("12.50"), CONDICOES)).thenReturn(dto);
-        mvc.perform(aprovar("{\"percentualMulta\":12.50,\"condicoesDevolucao\":\"" + CONDICOES + "\"}")).andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(70)).andExpect(jsonPath("$.status").value("PLANEJADO"));
+
+        mvc.perform(aprovar("{\"percentualMulta\":12.50,\"condicoesDevolucao\":\"" + CONDICOES + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(70))
+                .andExpect(jsonPath("$.solicitacaoId").value(7))
+                .andExpect(jsonPath("$.status").value("PLANEJADO"))
+                .andExpect(jsonPath("$.valorTotal").value(1000.00))
+                .andExpect(jsonPath("$.percentualMulta").value(12.50));
+
         verify(solicitacaoService).aprovar(7L, 5L, new BigDecimal("12.50"), CONDICOES);
     }
 
