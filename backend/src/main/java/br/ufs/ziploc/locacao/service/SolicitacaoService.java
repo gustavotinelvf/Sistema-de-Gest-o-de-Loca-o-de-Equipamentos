@@ -8,12 +8,14 @@ import br.ufs.ziploc.equipamento.api.ModeloInfo;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.locacao.domain.Contrato;
 import br.ufs.ziploc.locacao.domain.Solicitacao;
+import br.ufs.ziploc.locacao.domain.StatusSolicitacao;
 import br.ufs.ziploc.locacao.dto.ContratoDTO;
 import br.ufs.ziploc.locacao.dto.ItemContratoDTO;
 import br.ufs.ziploc.locacao.dto.ItemSolicitacaoDTO;
 import br.ufs.ziploc.locacao.dto.RegistrarSolicitacaoRequest;
 import br.ufs.ziploc.locacao.dto.SolicitacaoDTO;
 import br.ufs.ziploc.locacao.dto.SolicitacaoResponse;
+import br.ufs.ziploc.locacao.dto.SolicitacaoResumo;
 import br.ufs.ziploc.locacao.repository.ContratoRepository;
 import br.ufs.ziploc.locacao.repository.SolicitacaoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
@@ -29,6 +31,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -65,6 +68,24 @@ public class SolicitacaoService {
             solicitacao.adicionarItem(item.modeloId(), item.quantidade(), modelo.valorDiariaBase());
         }
         return SolicitacaoResponse.de(salvar(solicitacao));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SolicitacaoResumo> listar(StatusSolicitacao status) {
+        Long locadoraId = Objects.requireNonNull(
+                locadoraApi.obterParametros().id(),
+                "O identificador da locadora é obrigatório."
+        );
+
+        if (locadoraId <= 0) {
+            throw new IllegalStateException("O identificador da locadora é inválido.");
+        }
+
+        List<Solicitacao> solicitacoes = status == null
+                ? solicitacaoRepository.findByLocadoraIdOrderByDataCriacaoAscIdAsc(locadoraId)
+                : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
+
+        return solicitacoes.stream().map(SolicitacaoResumo::de).toList();
     }
 
     @Transactional(readOnly = true)
