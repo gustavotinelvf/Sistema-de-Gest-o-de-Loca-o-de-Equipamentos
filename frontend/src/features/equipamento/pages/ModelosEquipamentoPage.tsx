@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CadastroEquipamentoModal } from '../components/CadastroEquipamentoModal'
 import { NovaUnidadeForm } from '../components/NovaUnidadeForm'
 import { NovoModeloForm } from '../components/NovoModeloForm'
 import { TabelaModelosEquipamento } from '../components/TabelaModelosEquipamento'
@@ -31,28 +32,33 @@ export function ModelosEquipamentoPage({ modelos = [] }: { modelos?: readonly Mo
           <p>Gerencie os modelos de locação e cadastre unidades por número de série.</p>
         </div>
         <div className="catalogo__acoes">
-          <button type="button" aria-expanded={criandoModelo} onClick={() => setCadastro(criandoModelo ? null : { tipo: 'modelo' })}>
-            {criandoModelo ? 'Fechar cadastro de modelo' : 'Novo modelo'}
+          <button type="button" aria-haspopup="dialog" onClick={() => setCadastro({ tipo: 'modelo' })}>
+            Novo modelo
           </button>
-          <button className="catalogo__botao-secundario" type="button" aria-expanded={cadastro?.tipo === 'unidade'} onClick={() => setCadastro(cadastro?.tipo === 'unidade' ? null : { tipo: 'unidade' })}>
-            {cadastro?.tipo === 'unidade' ? 'Fechar cadastro de unidade' : 'Nova unidade'}
+          <button className="catalogo__botao-secundario" type="button" aria-haspopup="dialog" onClick={() => setCadastro({ tipo: 'unidade' })}>
+            Nova unidade
           </button>
         </div>
       </header>
 
-      {cadastro?.tipo === 'modelo' && (
+      {criandoModelo && (
+        <CadastroEquipamentoModal titulo="Novo modelo" aoFechar={() => setCadastro(null)}>
+          <NovoModeloForm />
+        </CadastroEquipamentoModal>
+      )}
+
+      {cadastro?.tipo === 'modelo' && cadastro.modelo && (
         <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-cadastro">
-          <h2 id="titulo-cadastro">{cadastro.modelo ? `Editar ${cadastro.modelo.nome}` : 'Novo modelo'}</h2>
-          <NovoModeloForm key={cadastro.modelo?.id ?? 'novo'} modelo={cadastro.modelo} />
-          {cadastro.modelo && <button type="button" onClick={() => setCadastro(null)}>Fechar edição</button>}
+          <h2 id="titulo-cadastro">Editar {cadastro.modelo.nome}</h2>
+          <NovoModeloForm key={cadastro.modelo.id} modelo={cadastro.modelo} />
+          <button type="button" onClick={() => setCadastro(null)}>Fechar edição</button>
         </section>
       )}
 
       {cadastro?.tipo === 'unidade' && (
-        <section className="catalogo__painel catalogo__cadastro" aria-labelledby="titulo-cadastro-unidade">
-          <h2 id="titulo-cadastro-unidade">Nova unidade física</h2>
+        <CadastroEquipamentoModal titulo="Nova unidade física" aoFechar={() => setCadastro(null)}>
           <NovaUnidadeForm modelos={modelos} />
-        </section>
+        </CadastroEquipamentoModal>
       )}
 
       <section className="catalogo__painel catalogo__lista" aria-labelledby="titulo-modelos">
