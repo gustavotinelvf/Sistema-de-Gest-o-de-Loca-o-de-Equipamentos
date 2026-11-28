@@ -15,6 +15,9 @@ public interface UnidadeApi {
 
     Optional<UnidadeInfo> buscarUnidade(Long unidadeId);
 
+    /** Consulta a unidade com bloqueio pessimista na transação do chamador. */
+    Optional<UnidadeInfo> buscarUnidadeParaAtualizacao(Long unidadeId);
+
     Optional<ModeloInfo> buscarModelo(Long modeloId);
 
     /** LOCADA → EM_VISTORIA (devolução recebida). */
