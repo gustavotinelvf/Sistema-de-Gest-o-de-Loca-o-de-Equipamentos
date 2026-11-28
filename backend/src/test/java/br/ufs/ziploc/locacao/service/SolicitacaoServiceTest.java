@@ -13,6 +13,10 @@ import br.ufs.ziploc.locacao.repository.SolicitacaoRepository;
 import br.ufs.ziploc.shared.exception.RecursoNaoEncontradoException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +34,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class SolicitacaoServiceTest {
@@ -152,5 +157,83 @@ class SolicitacaoServiceTest {
         when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L)).thenReturn(List.of(aprovada, pendente));
 
         assertThat(service.listar(null)).extracting(SolicitacaoResumo::status).containsExactly(StatusSolicitacao.APROVADA, StatusSolicitacao.PENDENTE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(StatusSolicitacao.class)
+    void consultaFilaParaCadaStatus(StatusSolicitacao status) {
+        prepararLocadora();
+
+        when(solicitacoes.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(1L, status))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(status)).isEmpty();
+
+        verify(solicitacoes).findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(1L, status);
+        verify(solicitacoes, never()).findByLocadoraIdOrderByDataCriacaoAscIdAsc(any());
+    }
+
+    @Test
+    void retornaFilaVaziaSemFiltro() {
+        prepararLocadora();
+
+        when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(null)).isEmpty();
+
+        verify(solicitacoes).findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L);
+        verify(solicitacoes, never()).findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(any(), any());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, -1L})
+    void impedeConsultaComLocadoraInvalida(Long locadoraId) {
+        ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
+
+        when(parametros.id()).thenReturn(locadoraId);
+        when(locadoraApi.obterParametros()).thenReturn(parametros);
+
+        Class<? extends RuntimeException> excecao = locadoraId == null
+                ? NullPointerException.class
+                : IllegalStateException.class;
+
+        assertThatThrownBy(() -> service.listar(null))
+                .isInstanceOf(excecao);
+
+        verifyNoInteractions(solicitacoes);
+    }
+
+    @Test
+    void utilizaIdentificadorDaLocadoraFornecidoPelaApi() {
+        ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
+
+        when(parametros.id()).thenReturn(42L);
+        when(locadoraApi.obterParametros()).thenReturn(parametros);
+        when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(42L))
+                .thenReturn(List.of());
+
+        assertThat(service.listar(null)).isEmpty();
+
+        verify(solicitacoes).findByLocadoraIdOrderByDataCriacaoAscIdAsc(42L);
+    }
+
+    @Test
+    void montaResumoSemAcessarItensDaSolicitacao() {
+        prepararLocadora();
+
+        Solicitacao solicitacao = mock(Solicitacao.class);
+
+        when(solicitacao.getId()).thenReturn(7L);
+        when(solicitacao.getStatus()).thenReturn(StatusSolicitacao.PENDENTE);
+        when(solicitacoes.findByLocadoraIdOrderByDataCriacaoAscIdAsc(1L))
+                .thenReturn(List.of(solicitacao));
+
+        assertThat(service.listar(null))
+                .extracting(SolicitacaoResumo::id)
+                .containsExactly(7L);
+
+        verify(solicitacao, never()).getItens();
     }
 }

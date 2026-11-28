@@ -31,6 +31,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -71,8 +72,19 @@ public class SolicitacaoService {
 
     @Transactional(readOnly = true)
     public List<SolicitacaoResumo> listar(StatusSolicitacao status) {
-        Long locadoraId = locadoraApi.obterParametros().id();
-        List<Solicitacao> solicitacoes = status == null ? solicitacaoRepository.findByLocadoraIdOrderByDataCriacaoAscIdAsc(locadoraId) : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
+        Long locadoraId = Objects.requireNonNull(
+                locadoraApi.obterParametros().id(),
+                "O identificador da locadora é obrigatório."
+        );
+
+        if (locadoraId <= 0) {
+            throw new IllegalStateException("O identificador da locadora é inválido.");
+        }
+
+        List<Solicitacao> solicitacoes = status == null
+                ? solicitacaoRepository.findByLocadoraIdOrderByDataCriacaoAscIdAsc(locadoraId)
+                : solicitacaoRepository.findByLocadoraIdAndStatusOrderByDataCriacaoAscIdAsc(locadoraId, status);
+
         return solicitacoes.stream().map(SolicitacaoResumo::de).toList();
     }
 
