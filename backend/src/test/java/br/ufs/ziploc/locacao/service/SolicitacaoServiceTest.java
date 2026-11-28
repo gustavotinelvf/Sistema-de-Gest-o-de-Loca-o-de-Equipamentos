@@ -72,6 +72,7 @@ class SolicitacaoServiceTest {
         assertThat(r.itens()).hasSize(1);
         assertThat(r.itens().get(0).quantidade()).isEqualTo(3);
         assertThat(r.clienteId()).isEqualTo(10L);
+        assertThat(r.valorEstimado()).isEqualByComparingTo("1800.00");
     }
 
     @Test

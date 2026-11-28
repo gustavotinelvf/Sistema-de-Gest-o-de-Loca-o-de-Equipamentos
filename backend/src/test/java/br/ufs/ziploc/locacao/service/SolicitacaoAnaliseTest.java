@@ -64,6 +64,7 @@ class SolicitacaoAnaliseTest {
         assertThat(dto.status()).isEqualTo("PLANEJADO");
         assertThat(dto.solicitacaoId()).isEqualTo(7L);
         assertThat(dto.valorTotal()).isEqualByComparingTo("1000.00");
+        assertThat(solicitacao.getValorEstimado()).isEqualByComparingTo(dto.valorTotal());
         assertThat(dto.percentualMulta()).isEqualByComparingTo("10.00");
         assertThat(dto.itens()).extracting(ItemContratoDTO::unidadeId).containsExactly(100L, 101L);
         assertThat(solicitacao.getStatus()).isEqualTo(StatusSolicitacao.APROVADA);
