@@ -132,6 +132,31 @@ public class Usuario {
         this.status = StatusUsuario.INATIVO;
     }
 
+    /**
+     * Anonimização LGPD (tarefa 18, rotina EXTRA validada pelo Tech Lead): só vale para usuário
+     * INATIVO ainda não anonimizado. Remove os dados pessoais e as credenciais, mantendo o registro
+     * (e o id) para o histórico das operações. Respeita os CHECKs do banco: o anonimizado fica
+     * INATIVO, sem CPF e sem senha, e o e-mail continua válido e único (usa o id).
+     */
+    public void anonimizar(Instant agora) {
+        Objects.requireNonNull(agora, "A data da anonimização é obrigatória");
+        if (isAnonimizado()) {
+            throw new IllegalStateException("O usuário já foi anonimizado");
+        }
+        if (status != StatusUsuario.INATIVO) {
+            throw new IllegalStateException("Só um usuário INATIVO pode ser anonimizado");
+        }
+        if (id == null) {
+            throw new IllegalStateException("O usuário precisa estar salvo para ser anonimizado");
+        }
+        this.nome = "ANONIMIZADO";
+        this.email = "anonimizado-" + id + "@anonimizado.invalid";
+        this.cpf = null;
+        this.senhaHash = null;
+        this.cargo = null;
+        this.anonimizadoEm = agora;
+    }
+
     public boolean isAtivo() {
         return status == StatusUsuario.ATIVO;
     }
