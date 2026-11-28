@@ -369,27 +369,9 @@ class ClienteServiceTest {
         assertFalse(clienteService.verificarAdimplencia(1L));
     }
 
-    @Test
-    void deveAlterarStatusDeAdimplenciaESalvarCliente_RF018_RD010() {
-        Cliente cliente = criarClienteValido();
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
 
-        clienteService.alterarStatusAdimplencia(1L, StatusAdimplencia.INADIMPLENTE);
 
-        assertEquals(StatusAdimplencia.INADIMPLENTE, cliente.getStatusAdimplencia());
-        verify(clienteRepository).save(cliente);
-    }
 
-    @Test
-    void deveLancarExcecaoAoAlterarStatusDeClienteInexistente_RF018() {
-        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(
-                RecursoNaoEncontradoException.class,
-                () -> clienteService.alterarStatusAdimplencia(99L, StatusAdimplencia.INADIMPLENTE)
-        );
-        verify(clienteRepository, never()).save(any());
-    }
 
     @ParameterizedTest
     @ValueSource(strings = {

@@ -21,6 +21,7 @@ import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -108,6 +109,7 @@ public class ContratoService implements ContratoApi {
         for (ItemContrato item : contrato.getItens()) {
             diariasPorDia = diariasPorDia.add(item.getValorDiariaContratada());
         }
+
         BigDecimal acrescimo = diariasPorDia.multiply(BigDecimal.valueOf(diasAdicionais)).setScale(2, RoundingMode.HALF_UP);
 
         contrato.prorrogar(novaDataFim, acrescimo);
@@ -151,6 +153,20 @@ public class ContratoService implements ContratoApi {
     @Transactional(readOnly = true)
     public Optional<ContratoResumo> buscarContrato(Long contratoId) {
         return contratos.findById(contratoId).map(ContratoService::paraResumo);
+    }
+
+    /**
+     * Bloqueia o contrato da locadora antes do cálculo das multas.
+     * O bloqueio permanece até o fim da transação da devolução.
+     */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<ContratoResumo> buscarContratoParaDevolucao(
+            Long itemContratoId, Long locadoraId) {
+
+        return contratos
+                .findByItemContratoIdAndLocadoraIdForUpdate(itemContratoId, locadoraId)
+                .map(ContratoService::paraResumo);
     }
 
     @Override

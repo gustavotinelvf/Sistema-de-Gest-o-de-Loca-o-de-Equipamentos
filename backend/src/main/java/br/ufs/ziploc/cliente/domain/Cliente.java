@@ -16,8 +16,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-
-//Cliente pessoa jurídica (locatário) vinculado a uma locadora.
+// Cliente pessoa jurídica (locatário) vinculado a uma locadora.
 
 @Entity
 @Table(name = "cliente")
@@ -29,7 +28,8 @@ public class Cliente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Regra D4: referência a outro módulo (acesso) é guardada apenas pelo id
+    // Regra D4: referência a outro módulo (acesso)
+    // é guardada apenas pelo id.
     @Column(name = "locadora_id", nullable = false)
     private Long locadoraId;
 
@@ -45,9 +45,18 @@ public class Cliente {
     @Embedded
     private Endereco endereco;
 
+    // RD010 e RF018: o status é atualizado pelo banco de dados
+    // e pelo fluxo de reconsideração gerencial.
+    // O Hibernate não deve sobrescrever essa classificação.
     @Enumerated(EnumType.STRING)
-    @Column(name = "status_adimplencia", nullable = false, length = 15)
-    private StatusAdimplencia statusAdimplencia = StatusAdimplencia.ADIMPLENTE;
+    @Column(
+            name = "status_adimplencia",
+            nullable = false,
+            length = 15,
+            updatable = false
+    )
+    private StatusAdimplencia statusAdimplencia =
+            StatusAdimplencia.ADIMPLENTE;
 
     @Column(name = "ativo", nullable = false)
     private boolean ativo = true;
@@ -58,30 +67,54 @@ public class Cliente {
     @Column(name = "data_anonimizacao")
     private Instant dataAnonimizacao;
 
-    public Cliente(Long locadoraId, String razaoSocial, String cnpj, Contato contato, Endereco endereco) {
-        this.locadoraId = Objects.requireNonNull(locadoraId, "Locadora é obrigatória");
+    public Cliente(
+            Long locadoraId,
+            String razaoSocial,
+            String cnpj,
+            Contato contato,
+            Endereco endereco) {
+
+        this.locadoraId = Objects.requireNonNull(
+                locadoraId, "Locadora é obrigatória");
+
         this.razaoSocial = validarRazaoSocial(razaoSocial);
-        this.cnpj = Objects.requireNonNull(cnpj, "CNPJ é obrigatório");
+
+        this.cnpj = Objects.requireNonNull(
+                cnpj, "CNPJ é obrigatório");
+
         this.contato = contato;
-        this.endereco = Objects.requireNonNull(endereco, "Endereço é obrigatório");
+
+        this.endereco = Objects.requireNonNull(
+                endereco, "Endereço é obrigatório");
+
         this.statusAdimplencia = StatusAdimplencia.ADIMPLENTE;
+
         this.ativo = true;
     }
 
     @PrePersist
     void aoPersistir() {
+
         if (dataCadastro == null) {
             dataCadastro = Instant.now();
         }
+
         if (statusAdimplencia == null) {
             statusAdimplencia = StatusAdimplencia.ADIMPLENTE;
         }
     }
 
-    public void atualizarDados(String razaoSocial, Contato contato, Endereco endereco) {
+    public void atualizarDados(
+            String razaoSocial,
+            Contato contato,
+            Endereco endereco) {
+
         this.razaoSocial = validarRazaoSocial(razaoSocial);
+
         this.contato = contato;
-        this.endereco = Objects.requireNonNull(endereco, "Endereço é obrigatório");
+
+        this.endereco = Objects.requireNonNull(
+                endereco, "Endereço é obrigatório");
     }
 
     public void inativar() {
@@ -92,20 +125,32 @@ public class Cliente {
         this.ativo = true;
     }
 
-    public void alterarStatusAdimplencia(StatusAdimplencia novoStatus) {
-        this.statusAdimplencia = Objects.requireNonNull(novoStatus, "Status de adimplência é obrigatório");
+    public void alterarStatusAdimplencia(
+            StatusAdimplencia novoStatus) {
+
+        this.statusAdimplencia = Objects.requireNonNull(
+                novoStatus, "Status de adimplência é obrigatório");
     }
 
     public void anonimizarDados() {
-        // CPF, e-mail e telefone ficam nulos para remover dados pessoais sem violar o CHECK de formato de representante_cpf no banco
-        this.contato = new Contato("ANONIMIZADO", null, null, null);
+
+        // CPF, e-mail e telefone ficam nulos para remover
+        // dados pessoais sem violar o CHECK de formato
+        // de representante_cpf no banco.
+        this.contato = new Contato(
+                "ANONIMIZADO", null, null, null);
+
         this.dataAnonimizacao = Instant.now();
     }
 
     private static String validarRazaoSocial(String razaoSocial) {
+
         if (razaoSocial == null || razaoSocial.isBlank()) {
-            throw new IllegalArgumentException("Razão social não pode estar em branco");
+
+            throw new IllegalArgumentException(
+                    "Razão social não pode estar em branco");
         }
+
         return razaoSocial.trim();
     }
 }

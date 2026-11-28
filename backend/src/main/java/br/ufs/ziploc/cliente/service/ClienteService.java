@@ -49,10 +49,18 @@ public class ClienteService implements ClienteApi {
         Contato contato = montarContato(request);
         Endereco endereco = montarEndereco(request);
 
-        Cliente cliente = new Cliente(locadoraId, request.razaoSocial(), cnpjLimpo, contato, endereco);
+        Cliente cliente = new Cliente(
+                locadoraId,
+                request.razaoSocial(),
+                cnpjLimpo,
+                contato,
+                endereco
+        );
 
         try {
-            return ClienteResponseDTO.de(clienteRepository.saveAndFlush(cliente));
+            return ClienteResponseDTO.de(
+                    clienteRepository.saveAndFlush(cliente)
+            );
         } catch (DataIntegrityViolationException e) {
             if (violouUnicidadeCnpj(e)) {
                 throw new ConflitoException(CNPJ_DUPLICADO);
@@ -70,16 +78,32 @@ public class ClienteService implements ClienteApi {
             Pageable pageable
     ) {
         Long locadoraId = locadoraApi.obterParametros().id();
+
         return clienteRepository
-                .findAll(ClienteSpecs.comFiltros(locadoraId, razaoSocial, cnpj, ativo, statusAdimplencia), pageable)
+                .findAll(
+                        ClienteSpecs.comFiltros(
+                                locadoraId,
+                                razaoSocial,
+                                cnpj,
+                                ativo,
+                                statusAdimplencia
+                        ),
+                        pageable
+                )
                 .map(ClienteResponseDTO::de);
     }
 
     @Transactional(readOnly = true)
     public ClienteResponseDTO buscarPorId(Long id) {
         Long locadoraId = locadoraApi.obterParametros().id();
-        Cliente cliente = clienteRepository.findByIdAndLocadoraId(id, locadoraId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com id: " + id));
+
+        Cliente cliente = clienteRepository
+                .findByIdAndLocadoraId(id, locadoraId)
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException(
+                                "Cliente não encontrado com id: " + id
+                        ));
+
         return ClienteResponseDTO.de(cliente);
     }
 
@@ -91,8 +115,14 @@ public class ClienteService implements ClienteApi {
 
         Long locadoraId = locadoraApi.obterParametros().id();
         String cnpjLimpo = CnpjValidador.limpar(cnpj);
-        Cliente cliente = clienteRepository.findByCnpjAndLocadoraId(cnpjLimpo, locadoraId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com CNPJ: " + cnpj));
+
+        Cliente cliente = clienteRepository
+                .findByCnpjAndLocadoraId(cnpjLimpo, locadoraId)
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException(
+                                "Cliente não encontrado com CNPJ: " + cnpj
+                        ));
+
         return ClienteResponseDTO.de(cliente);
     }
 
@@ -107,20 +137,17 @@ public class ClienteService implements ClienteApi {
     @Transactional(readOnly = true)
     public boolean verificarAdimplencia(Long clienteId) {
         Cliente cliente = buscarPorIdOuFalhar(clienteId);
-        return cliente.getStatusAdimplencia() == StatusAdimplencia.ADIMPLENTE;
-    }
 
-    @Override
-    @Transactional
-    public void alterarStatusAdimplencia(Long clienteId, StatusAdimplencia status) {
-        Cliente cliente = buscarPorIdOuFalhar(clienteId);
-        cliente.alterarStatusAdimplencia(status);
-        clienteRepository.save(cliente);
+        return cliente.getStatusAdimplencia()
+                == StatusAdimplencia.ADIMPLENTE;
     }
 
     private Cliente buscarPorIdOuFalhar(Long clienteId) {
         return clienteRepository.findById(clienteId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado com id: " + clienteId));
+                .orElseThrow(() ->
+                        new RecursoNaoEncontradoException(
+                                "Cliente não encontrado com id: " + clienteId
+                        ));
     }
 
     private boolean violouUnicidadeCnpj(Throwable erro) {
@@ -128,9 +155,12 @@ public class ClienteService implements ClienteApi {
 
         while (causa != null) {
             if (causa instanceof ConstraintViolationException violacao
-                    && "cliente_cnpj_key".equals(violacao.getConstraintName())) {
+                    && "cliente_cnpj_key".equals(
+                            violacao.getConstraintName())) {
+
                 return true;
             }
+
             causa = causa.getCause();
         }
 
@@ -143,14 +173,20 @@ public class ClienteService implements ClienteApi {
         String email = normalizarOpcional(request.email());
         String telefone = normalizarOpcional(request.telefone());
 
-        if (nome == null && cpf == null && email == null && telefone == null) {
+        if (nome == null
+                && cpf == null
+                && email == null
+                && telefone == null) {
+
             return null;
         }
+
         return new Contato(nome, cpf, email, telefone);
     }
 
     private Endereco montarEndereco(ClienteRequestDTO request) {
         String cepLimpo = request.cep().replace("-", "");
+
         return new Endereco(
                 cepLimpo,
                 request.logradouro().trim(),
@@ -163,12 +199,15 @@ public class ClienteService implements ClienteApi {
     }
 
     private String normalizarOpcional(String valor) {
-        return (valor == null || valor.isBlank()) ? null : valor.trim();
+        return (valor == null || valor.isBlank())
+                ? null
+                : valor.trim();
     }
 
     private ClienteResumoDTO toResumoDTO(Cliente cliente) {
         Contato contato = cliente.getContato();
         Endereco endereco = cliente.getEndereco();
+
         return new ClienteResumoDTO(
                 cliente.getId(),
                 cliente.getLocadoraId(),
