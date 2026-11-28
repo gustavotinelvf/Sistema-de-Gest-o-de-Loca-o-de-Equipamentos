@@ -1,6 +1,8 @@
 package br.ufs.ziploc.acesso.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,36 +55,57 @@ class UsuarioServiceTest {
 
     @Test
     void inativar_outroUsuario_ficaInativo() {
-        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Bia")));
+        Usuario alvo = usuario(2L, "Bia");
+
+        when(usuarioRepository.findByIdForUpdate(2L))
+                .thenReturn(Optional.of(alvo));
 
         UsuarioResponseDTO dto = service.inativar(2L, 1L);
 
         assertEquals(StatusUsuario.INATIVO, dto.status());
-        verify(usuarioRepository).save(any(Usuario.class));
+        assertNotNull(alvo.getDataInativacao());
+
+        verify(usuarioRepository).findByIdForUpdate(2L);
+        verify(usuarioRepository, never()).findById(2L);
+        verify(usuarioRepository).save(alvo);
     }
 
     @Test
     void inativar_aPropriaConta_lancaOperacaoInvalida() {
-        assertThrows(OperacaoUsuarioInvalidaException.class, () -> service.inativar(1L, 1L));
+        assertThrows(OperacaoUsuarioInvalidaException.class,
+                () -> service.inativar(1L, 1L));
+
+        verify(usuarioRepository, never()).findByIdForUpdate(any());
         verify(usuarioRepository, never()).save(any());
     }
 
     @Test
     void inativar_usuarioInexistente_lancaNaoEncontrado() {
-        when(usuarioRepository.findById(9L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdForUpdate(9L))
+                .thenReturn(Optional.empty());
 
-        assertThrows(UsuarioNaoEncontradoException.class, () -> service.inativar(9L, 1L));
+        assertThrows(UsuarioNaoEncontradoException.class,
+                () -> service.inativar(9L, 1L));
+
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test
     void reativar_usuarioInativo_voltaAtivo() {
         Usuario inativo = usuario(2L, "Bia");
         inativo.inativar();
-        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(inativo));
+
+        when(usuarioRepository.findByIdForUpdate(2L))
+                .thenReturn(Optional.of(inativo));
 
         UsuarioResponseDTO dto = service.reativar(2L);
 
         assertEquals(StatusUsuario.ATIVO, dto.status());
+        assertNull(inativo.getDataInativacao());
+
+        verify(usuarioRepository).findByIdForUpdate(2L);
+        verify(usuarioRepository, never()).findById(2L);
+        verify(usuarioRepository).save(inativo);
     }
 
     @Test
@@ -90,28 +113,35 @@ class UsuarioServiceTest {
         Usuario pendente = Usuario.criarPendente(1L, "Caio", "caio@x.com", Perfil.ESTOQUISTA, null);
         ReflectionTestUtils.setField(pendente, "id", 3L);
         pendente.inativar();
-        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(pendente));
 
-        assertThrows(OperacaoUsuarioInvalidaException.class, () -> service.reativar(3L));
+        when(usuarioRepository.findByIdForUpdate(3L))
+                .thenReturn(Optional.of(pendente));
+
+        assertThrows(OperacaoUsuarioInvalidaException.class,
+                () -> service.reativar(3L));
+
         verify(usuarioRepository, never()).save(any());
     }
 
     @Test
     void reativar_usuarioInexistente_lancaNaoEncontrado() {
-        when(usuarioRepository.findById(9L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdForUpdate(9L))
+                .thenReturn(Optional.empty());
 
-        assertThrows(UsuarioNaoEncontradoException.class, () -> service.reativar(9L));
+        assertThrows(UsuarioNaoEncontradoException.class,
+                () -> service.reativar(9L));
+
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test
     void reativar_usuarioAnonimizado_lancaOperacaoInvalida() {
         Usuario anonimizado = usuario(4L, "Usuario Anonimizado");
-        anonimizado.inativar();
+        anonimizado.inativar(Instant.parse("2025-01-01T12:00:00Z"));
+        anonimizado.anonimizar(Instant.parse("2026-11-27T12:00:00Z"));
 
-        ReflectionTestUtils.setField(anonimizado, "anonimizadoEm", Instant.now());
-        ReflectionTestUtils.setField(anonimizado, "senhaHash", null);
-
-        when(usuarioRepository.findById(4L)).thenReturn(Optional.of(anonimizado));
+        when(usuarioRepository.findByIdForUpdate(4L))
+                .thenReturn(Optional.of(anonimizado));
 
         OperacaoUsuarioInvalidaException erro = assertThrows(
                 OperacaoUsuarioInvalidaException.class,
@@ -131,7 +161,8 @@ class UsuarioServiceTest {
         gerente.inativar();
         ReflectionTestUtils.setField(gerente, "cpf", null);
 
-        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(gerente));
+        when(usuarioRepository.findByIdForUpdate(5L))
+                .thenReturn(Optional.of(gerente));
 
         OperacaoUsuarioInvalidaException erro = assertThrows(
                 OperacaoUsuarioInvalidaException.class,
@@ -148,6 +179,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(ativo));
 
         assertEquals(Optional.of("ATENDENTE"), service.consultarPerfilAtivo(1L));
+        verify(usuarioRepository, never()).findByIdForUpdate(any());
         verify(usuarioRepository, never()).save(any());
     }
 
@@ -179,9 +211,8 @@ class UsuarioServiceTest {
     void consultarPerfilAtivo_usuarioAnonimizado_retornaVazio() {
         Usuario anonimizado = usuario(4L, "Usuario Anonimizado");
 
-        anonimizado.inativar();
-        ReflectionTestUtils.setField(anonimizado, "anonimizadoEm", Instant.now());
-        ReflectionTestUtils.setField(anonimizado, "senhaHash", null);
+        anonimizado.inativar(Instant.parse("2025-01-01T12:00:00Z"));
+        anonimizado.anonimizar(Instant.parse("2026-11-27T12:00:00Z"));
 
         when(usuarioRepository.findById(4L)).thenReturn(Optional.of(anonimizado));
 
@@ -195,5 +226,62 @@ class UsuarioServiceTest {
 
         assertTrue(service.consultarPerfilAtivo(9L).isEmpty());
         verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void inativar_usuarioJaInativo_preservaDataOriginal() {
+        Usuario inativo = usuario(2L, "Bia");
+        Instant dataOriginal = Instant.parse("2025-01-01T12:00:00Z");
+        inativo.inativar(dataOriginal);
+
+        when(usuarioRepository.findByIdForUpdate(2L))
+                .thenReturn(Optional.of(inativo));
+
+        UsuarioResponseDTO dto = service.inativar(2L, 1L);
+
+        assertEquals(StatusUsuario.INATIVO, dto.status());
+        assertEquals(dataOriginal, inativo.getDataInativacao());
+    }
+
+    @Test
+    void inativar_usuarioAnonimizado_preservaHistorico() {
+        Usuario anonimizado = usuario(2L, "Bia");
+        Instant inativacao = Instant.parse("2025-01-01T12:00:00Z");
+        Instant anonimizacao = Instant.parse("2026-11-27T12:00:00Z");
+
+        anonimizado.inativar(inativacao);
+        anonimizado.anonimizar(anonimizacao);
+
+        when(usuarioRepository.findByIdForUpdate(2L))
+                .thenReturn(Optional.of(anonimizado));
+
+        UsuarioResponseDTO dto = service.inativar(2L, 1L);
+
+        assertEquals(StatusUsuario.INATIVO, dto.status());
+        assertEquals(inativacao, anonimizado.getDataInativacao());
+        assertEquals(anonimizacao, anonimizado.getAnonimizadoEm());
+        assertEquals("anonimizado-2@anonimizado.invalid", anonimizado.getEmail());
+        assertNull(anonimizado.getSenhaHash());
+    }
+
+    @Test
+    void reativarEInativarNovamente_iniciaNovoCicloDeRetencao() {
+        Usuario alvo = usuario(2L, "Bia");
+        Instant dataOriginal = Instant.parse("2025-01-01T12:00:00Z");
+        alvo.inativar(dataOriginal);
+
+        when(usuarioRepository.findByIdForUpdate(2L))
+                .thenReturn(Optional.of(alvo));
+
+        service.reativar(2L);
+
+        assertNull(alvo.getDataInativacao());
+        assertEquals(StatusUsuario.ATIVO, alvo.getStatus());
+
+        service.inativar(2L, 1L);
+
+        assertEquals(StatusUsuario.INATIVO, alvo.getStatus());
+        assertNotNull(alvo.getDataInativacao());
+        assertTrue(alvo.getDataInativacao().isAfter(dataOriginal));
     }
 }

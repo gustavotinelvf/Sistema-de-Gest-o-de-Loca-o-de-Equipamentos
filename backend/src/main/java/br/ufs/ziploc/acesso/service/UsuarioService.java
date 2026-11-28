@@ -40,7 +40,8 @@ public class UsuarioService implements UsuarioApi {
         if (id.equals(solicitanteId)) {
             throw new OperacaoUsuarioInvalidaException("Você não pode inativar a própria conta");
         }
-        Usuario usuario = buscar(id);
+
+        Usuario usuario = buscarParaAtualizacao(id);
         usuario.inativar();
         usuarioRepository.save(usuario);
         return UsuarioResponseDTO.from(usuario);
@@ -48,7 +49,7 @@ public class UsuarioService implements UsuarioApi {
 
     @Transactional
     public UsuarioResponseDTO reativar(Long id) {
-        Usuario usuario = buscar(id);
+        Usuario usuario = buscarParaAtualizacao(id);
 
         try {
             usuario.ativar();
@@ -60,7 +61,8 @@ public class UsuarioService implements UsuarioApi {
         return UsuarioResponseDTO.from(usuario);
     }
 
-    private Usuario buscar(Long id) {
-        return usuarioRepository.findById(id).orElseThrow(() -> new UsuarioNaoEncontradoException(id));
+    private Usuario buscarParaAtualizacao(Long id) {
+        return usuarioRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException(id));
     }
 }

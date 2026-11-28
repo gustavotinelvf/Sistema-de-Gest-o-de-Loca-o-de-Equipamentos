@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -26,6 +27,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Usuario {
+
+    private static final String DOMINIO_ANONIMIZACAO = "@anonimizado.invalid";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -64,6 +67,9 @@ public class Usuario {
     @Column(name = "data_ativacao")
     private Instant dataAtivacao;
 
+    @Column(name = "data_inativacao")
+    private Instant dataInativacao;
+
     @Column(name = "anonimizado_em")
     private Instant anonimizadoEm;
 
@@ -73,6 +79,7 @@ public class Usuario {
         Objects.requireNonNull(locadoraId, "locadoraId é obrigatório");
         Objects.requireNonNull(senhaHash, "senhaHash é obrigatório para usuário ATIVO");
         exigirCpfSeGerente(perfil, cpf);
+        validarEmailReservado(email);
         Usuario u = new Usuario();
         u.locadoraId = locadoraId;
         u.nome = nome;
@@ -89,6 +96,7 @@ public class Usuario {
     public static Usuario criarPendente(Long locadoraId, String nome, String email,
                                         Perfil perfil, String cargo) {
         Objects.requireNonNull(locadoraId, "locadoraId é obrigatório");
+        validarEmailReservado(email);
         Usuario u = new Usuario();
         u.locadoraId = locadoraId;
         u.nome = nome;
@@ -111,6 +119,7 @@ public class Usuario {
         this.senhaHash = senhaHash;
         this.status = StatusUsuario.ATIVO;
         this.dataAtivacao = agora;
+        this.dataInativacao = null;
     }
 
     /** Reativa um usuário que já teve senha, desde que não esteja anonimizado. */
@@ -123,13 +132,26 @@ public class Usuario {
         }
         exigirCpfSeGerente(perfil, cpf);
         this.status = StatusUsuario.ATIVO;
+        this.dataInativacao = null;
         if (this.dataAtivacao == null) {
             this.dataAtivacao = Instant.now();
         }
     }
 
     public void inativar() {
+        inativar(Instant.now());
+    }
+
+    /** Registra o início do ciclo de inativação sem reiniciar uma retenção em andamento. */
+    public void inativar(Instant agora) {
+        Objects.requireNonNull(agora, "A data da inativação é obrigatória");
+
+        if (status == StatusUsuario.INATIVO) {
+            return;
+        }
+
         this.status = StatusUsuario.INATIVO;
+        this.dataInativacao = agora;
     }
 
     /**
@@ -140,6 +162,7 @@ public class Usuario {
      */
     public void anonimizar(Instant agora) {
         Objects.requireNonNull(agora, "A data da anonimização é obrigatória");
+
         if (isAnonimizado()) {
             throw new IllegalStateException("O usuário já foi anonimizado");
         }
@@ -149,8 +172,15 @@ public class Usuario {
         if (id == null) {
             throw new IllegalStateException("O usuário precisa estar salvo para ser anonimizado");
         }
+        if (dataInativacao == null) {
+            throw new IllegalStateException("O usuário precisa possuir uma data de inativação");
+        }
+        if (agora.isBefore(dataInativacao)) {
+            throw new IllegalArgumentException("A anonimização não pode ser anterior à inativação");
+        }
+
         this.nome = "ANONIMIZADO";
-        this.email = "anonimizado-" + id + "@anonimizado.invalid";
+        this.email = "anonimizado-" + id + DOMINIO_ANONIMIZACAO;
         this.cpf = null;
         this.senhaHash = null;
         this.cargo = null;
@@ -177,6 +207,12 @@ public class Usuario {
 
     private static String normalizarCpf(String cpf) {
         return (cpf == null || cpf.isBlank()) ? null : cpf;
+    }
+
+    private static void validarEmailReservado(String email) {
+        if (email != null && email.strip().toLowerCase(Locale.ROOT).endsWith(DOMINIO_ANONIMIZACAO)) {
+            throw new IllegalArgumentException("O domínio de e-mail informado é reservado para anonimização");
+        }
     }
 
     @PrePersist

@@ -6,7 +6,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Dispara a limpeza LGPD todo dia às 03:00 (configurável em ziploc.lgpd.cron). Não registra dados pessoais. */
+/**
+ * Dispara a limpeza LGPD diariamente às 03:00.
+ * Horário e fuso são configuráveis.
+ * Não registra dados pessoais.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -14,7 +18,10 @@ public class AnonimizacaoUsuariosAgendador {
 
     private final AnonimizacaoUsuariosService service;
 
-    @Scheduled(cron = "${ziploc.lgpd.cron:0 0 3 * * *}")
+    @Scheduled(
+            cron = "${ziploc.lgpd.cron:0 0 3 * * *}",
+            zone = "${ziploc.lgpd.zone:America/Sao_Paulo}"
+    )
     public void executar() {
         int total = service.anonimizarInativos(Instant.now());
         log.info("Limpeza LGPD de usuários: {} anonimizado(s)", total);
