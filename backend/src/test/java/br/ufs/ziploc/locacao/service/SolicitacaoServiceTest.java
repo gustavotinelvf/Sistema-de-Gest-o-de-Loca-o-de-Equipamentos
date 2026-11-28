@@ -3,6 +3,9 @@ package br.ufs.ziploc.locacao.service;
 
 import br.ufs.ziploc.acesso.api.LocadoraApi;
 import br.ufs.ziploc.acesso.api.ParametrosLocadoraDTO;
+import br.ufs.ziploc.cliente.api.ClienteApi;
+import br.ufs.ziploc.cliente.api.ClienteResumoDTO;
+import br.ufs.ziploc.cliente.domain.StatusAdimplencia;
 import br.ufs.ziploc.equipamento.api.UnidadeApi;
 import br.ufs.ziploc.equipamento.api.ModeloInfo;
 import br.ufs.ziploc.locacao.domain.Solicitacao;
@@ -45,12 +48,20 @@ class SolicitacaoServiceTest {
     @Mock SolicitacaoRepository solicitacoes;
     @Mock UnidadeApi unidadeApi;
     @Mock LocadoraApi locadoraApi;
+    @Mock ClienteApi clienteApi;
     @InjectMocks SolicitacaoService service;
 
     private void prepararLocadora() {
         ParametrosLocadoraDTO parametros = mock(ParametrosLocadoraDTO.class);
         when(parametros.id()).thenReturn(1L);
         when(locadoraApi.obterParametros()).thenReturn(parametros);
+    }
+
+    private void prepararCliente(boolean ativo, boolean adimplente) {
+        when(clienteApi.consultarResumo(10L)).thenReturn(new ClienteResumoDTO(10L, 1L, "Construtora", "12345678000199", "Ana",
+                "11122233344", "ana@teste.com", "79999999999", adimplente ? StatusAdimplencia.ADIMPLENTE : StatusAdimplencia.INADIMPLENTE,
+                ativo, "49100000", "Rua B", "20", null, "Centro", "São Cristóvão", "SE"));
+        if (ativo) when(clienteApi.verificarAdimplencia(10L)).thenReturn(adimplente);
     }
 
     private ModeloInfo modelo(boolean ativo) {
@@ -63,6 +74,7 @@ class SolicitacaoServiceTest {
 
     @Test
     void registraSolicitacaoPendenteComItens() {
+        prepararCliente(true, true);
         prepararLocadora();
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(true)));
         when(solicitacoes.saveAndFlush(any(Solicitacao.class))).thenAnswer(i -> i.getArgument(0));
@@ -78,6 +90,7 @@ class SolicitacaoServiceTest {
 
     @Test
     void rejeitaModeloInativo() {
+        prepararCliente(true, true);
         prepararLocadora();
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(false)));
 
@@ -87,6 +100,7 @@ class SolicitacaoServiceTest {
 
     @Test
     void rejeitaModeloInexistente() {
+        prepararCliente(true, true);
         prepararLocadora();
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.empty());
 
@@ -96,6 +110,7 @@ class SolicitacaoServiceTest {
 
     @Test
     void rejeitaModeloRepetidoNosItens() {
+        prepararCliente(true, true);
         prepararLocadora();
         when(unidadeApi.buscarModelo(1L)).thenReturn(Optional.of(modelo(true)));
 
@@ -237,5 +252,35 @@ class SolicitacaoServiceTest {
                 .containsExactly(7L);
 
         verify(solicitacao, never()).getItens();
+    }
+
+    // ---------- RD011: cliente inadimplente ou inativo ----------
+
+    @Test
+    void bloqueiaClienteInadimplente_RD011() {
+        prepararCliente(true, false);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RD011");
+        verify(solicitacoes, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void bloqueiaClienteInativo() {
+        prepararCliente(false, true);
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("inativo");
+        verify(solicitacoes, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void clienteInexistenteResultaEmNaoEncontrado() {
+        when(clienteApi.consultarResumo(10L)).thenThrow(new RecursoNaoEncontradoException("Cliente não encontrado com id: 10"));
+
+        assertThatThrownBy(() -> service.registrar(request(HOJE.plusDays(1), new RegistrarSolicitacaoRequest.Item(1L, 1)), 20L))
+                .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 }
